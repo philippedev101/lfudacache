@@ -41,12 +41,14 @@ ghc-options:
 - -Werror=partial-fields
 - -Werror=redundant-constraints
 
+dependencies:
+  - base
+
 library:
   source-dirs: src
   exposed-modules:
     - Data.LfudaCache
   dependencies:
-    - base
     - deepseq
     - hashable
     - psqueues
@@ -57,7 +59,6 @@ tests:
     main: Main.hs
     source-dirs: test
     dependencies:
-      - base
       - lfudacaching
       - tasty
       - tasty-hunit

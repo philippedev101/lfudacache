@@ -318,7 +318,7 @@ testLFUDASize = do
   assertEqual "Cache size should be 0 after purge" 0 s'
 
 -- Pure implementation of random number generation for testing
-type SimpleRandom :: *
+type SimpleRandom :: Type
 data SimpleRandom :: Type where
   SimpleRandom :: Int -> SimpleRandom
 
