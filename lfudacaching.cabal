@@ -33,7 +33,7 @@ library
       src
   default-extensions:
       NoImplicitPrelude
-  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
       base
     , deepseq
@@ -51,7 +51,7 @@ test-suite lfuda-test
       test
   default-extensions:
       NoImplicitPrelude
-  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
       base
     , lfudacaching

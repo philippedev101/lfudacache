@@ -1,10 +1,11 @@
-module Test.Data.LfudaCache where
+module Test.Data.LfudaCache
+  ( tests
+  ) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
 import Control.Monad
-import qualified Data.List as L
-import Data.Maybe (isJust, isNothing, fromMaybe)
+import Data.Maybe (isJust, isNothing)
 import Data.LfudaCache
 import Data.Foldable (foldl')
 import Prelude hiding (lookup)
@@ -62,7 +63,7 @@ testLFUDA = do
     let result = lookup i finalCache
     assertBool ("Key " ++ show i ++ " should not be in cache") (isNothing result)
 
-  -- Set a new value and check it
+  -- Set a newLFUDA value and check it
   let (_, cacheWithNewVal) = set (256 :: Int) (256 :: Int) finalCache
 
   let result = lookup (256 :: Int) cacheWithNewVal
@@ -120,7 +121,7 @@ testGDSF = do
           else assertEqual "Value should match key for other keys" k v
       Nothing -> assertFailure $ "Key " ++ show k ++ " should be in cache"
 
-  -- Set a new value and check it
+  -- Set a newLFUDA value and check it
   let (_, cacheWithNewVal) = set (256 :: Int) (256 :: Int) finalCache
 
   let result = lookup (256 :: Int) cacheWithNewVal
@@ -181,7 +182,7 @@ testLFUDAContains = do
 testLFUDAContainsOrSet :: Assertion
 testLFUDAContainsOrSet = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 2
+      initialCache = newLFUDA 2
 
   let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
   let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
@@ -191,7 +192,7 @@ testLFUDAContainsOrSet = do
   assertBool "Key 1 should be contained" contains1
   assertBool "Nothing should have been evicted" (not eviction1)
 
-  -- Test for new key
+  -- Test for newLFUDA key
   let (contains3, eviction3, _) = containsOrSet (3 :: Int) (3 :: Int) cache2
   assertBool "Key 3 should not have been contained" (not contains3)
   assertBool "Key 3 should have been set with eviction" eviction3
@@ -199,7 +200,7 @@ testLFUDAContainsOrSet = do
 testLFUDAPeekOrSet :: Assertion
 testLFUDAPeekOrSet = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 2
+      initialCache = newLFUDA 2
 
   let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
   let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
@@ -210,7 +211,7 @@ testLFUDAPeekOrSet = do
   assertBool "Key 1 should be contained" contains1
   assertBool "Nothing should have been set" (not set1)
 
-  -- Test for new key
+  -- Test for newLFUDA key
   let (prev3, contains3, set3, cache3) = peekOrSet (3 :: Int) (3 :: Int) cache2
   assertEqual "Previous value should be Nothing" Nothing prev3
   assertBool "Key 3 should not have been contained" (not contains3)
@@ -230,7 +231,7 @@ testLFUDAPeekOrSet = do
 testLFUDAPeek :: Assertion
 testLFUDAPeek = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 2
+      initialCache = newLFUDA 2
 
   let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
   let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
@@ -254,7 +255,7 @@ testLFUDAPeek = do
 testLFUDARemove :: Assertion
 testLFUDARemove = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 2
+      initialCache = newLFUDA 2
 
   let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
   let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
@@ -277,7 +278,7 @@ testLFUDARemove = do
 testLFUDAAge :: Assertion
 testLFUDAAge = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 1
+      initialCache = newLFUDA 1
 
   -- Set key 1 with initial frequency 1
   let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
@@ -300,7 +301,7 @@ testLFUDAAge = do
 testLFUDASize :: Assertion
 testLFUDASize = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 10
+      initialCache = newLFUDA 10
 
   -- Insert elements
   let finalCache = foldl' (\cache i ->
@@ -353,7 +354,7 @@ testBenchmark name benchmark = testCase name benchmark
 benchmarkLFUDA :: Assertion
 benchmarkLFUDA = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 1000  -- Smaller cache size to ensure evictions
+      initialCache = newLFUDA 1000  -- Smaller cache size to ensure evictions
 
   -- Generate deterministic random trace
   let traceSeed = SimpleRandom 42
@@ -384,7 +385,7 @@ benchmarkLFUDA = do
 benchmarkLFUDARand :: Assertion
 benchmarkLFUDARand = do
   let initialCache :: LfudaCache Int Int
-      initialCache = new 1000  -- Smaller cache size to ensure evictions
+      initialCache = newLFUDA 1000  -- Smaller cache size to ensure evictions
 
   -- Generate deterministic random trace
   let traceSeed = SimpleRandom 24
@@ -424,5 +425,5 @@ benchmarkLFUDARand = do
         in (newCache, h' + extraH, m' + extraM)
 
   -- Check results
-  assertBool "Should have some hits" (hits > 0)
-  assertBool "Should have some misses" (misses > 0)
+  assertBool "Should have some hits" (hits > (0 :: Int))
+  assertBool "Should have some misses" (misses > (0 :: Int))
