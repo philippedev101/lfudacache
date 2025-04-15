@@ -1,0 +1,67 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           lfudacaching
+version:        0.1.0
+synopsis:       LFUDA cache
+description:    LFUDA (Least Frequently Used with Dynamic Aging) cache implementation in Haskell
+category:       Data
+homepage:       https://github.com/YOUR_USERNAME/lfudacaching#readme
+bug-reports:    https://github.com/YOUR_USERNAME/lfudacaching/issues
+author:         Your Name
+maintainer:     your.email@example.com
+copyright:      2025
+license:        Apache-2.0
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/YOUR_USERNAME/lfudacaching
+
+library
+  exposed-modules:
+      Data.LfudaCache
+  other-modules:
+      Paths_lfudacaching
+  hs-source-dirs:
+      src
+  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints -Wall
+  build-depends:
+      base
+    , deepseq
+    , ghc-prim
+    , hashable
+    , psqueues
+    , vector
+  default-language: GHC2021
+
+test-suite lfuda-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Test.Data.LfudaCache
+  hs-source-dirs:
+      test
+  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+  build-depends:
+      QuickCheck
+    , base
+    , containers
+    , deepseq
+    , ghc-prim
+    , hashable
+    , hspec
+    , lfudacaching
+    , psqueues
+    , random
+    , tasty
+    , tasty-hunit
+    , transformers
+    , vector
+  default-language: GHC2021

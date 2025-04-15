@@ -1,0 +1,70 @@
+name: lfudacaching
+version: 0.1.0
+github: "YOUR_USERNAME/lfudacaching"
+license: Apache-2.0
+author: "Your Name"
+maintainer: "your.email@example.com"
+copyright: "2025"
+synopsis: LFUDA cache
+description: LFUDA (Least Frequently Used with Dynamic Aging) cache implementation in Haskell
+category: Data
+extra-source-files:
+  - README.md
+
+language: GHC2021
+
+ghc-options:
+- -Weverything
+- -Wno-deprecations
+- -Wno-missing-import-lists
+- -Wno-missing-local-signatures
+- -Wno-missing-safe-haskell-mode
+- -Wno-monomorphism-restriction
+- -Wno-prepositive-qualified-module
+- -Wno-safe
+- -Wno-type-defaults
+- -Wno-unsafe
+- -Wno-missing-export-lists
+- -Wno-orphans
+- -Wno-unused-imports
+- -Wno-name-shadowing
+- -Werror=identities
+- -Werror=missing-methods
+- -Werror=incomplete-record-updates
+- -Werror=incomplete-patterns
+- -Werror=missing-fields
+- -Werror=ambiguous-fields
+- -Werror=incomplete-uni-patterns
+- -Werror=partial-fields
+- -Werror=redundant-constraints
+
+dependencies:
+  - base
+  - deepseq
+  - hashable
+  - psqueues
+  - vector
+  - ghc-prim
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Data.LfudaCache
+  ghc-options:
+    - -Wall
+
+tests:
+  lfuda-test:
+    main: Main.hs
+    source-dirs: test
+    dependencies:
+      - lfudacaching
+      - containers
+      - hspec
+      - QuickCheck
+      - transformers
+      - tasty
+      - tasty-hunit
+      - random
+    other-modules:
+      - Test.Data.LfudaCache
