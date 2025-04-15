@@ -31,14 +31,15 @@ library
       Paths_lfudacaching
   hs-source-dirs:
       src
-  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints -Wall
+  default-extensions:
+      NoImplicitPrelude
+  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
       base
     , deepseq
     , ghc-prim
     , hashable
     , psqueues
-    , vector
   default-language: GHC2021
 
 test-suite lfuda-test
@@ -48,20 +49,12 @@ test-suite lfuda-test
       Test.Data.LfudaCache
   hs-source-dirs:
       test
+  default-extensions:
+      NoImplicitPrelude
   ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
-      QuickCheck
-    , base
-    , containers
-    , deepseq
-    , ghc-prim
-    , hashable
-    , hspec
+      base
     , lfudacaching
-    , psqueues
-    , random
     , tasty
     , tasty-hunit
-    , transformers
-    , vector
   default-language: GHC2021

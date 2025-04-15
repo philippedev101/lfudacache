@@ -29,7 +29,7 @@ module Data.LfudaCache
   , Age
   , Priority
   , EvictionResult(..)
-  
+
   -- * Construction
   , empty
   , new
@@ -37,35 +37,31 @@ module Data.LfudaCache
   , newLFU
   , newCache
   , newWithEvict
-  
+
   -- * Basic Operations
   , insert
   , insertView
   , lookup
-  , get
   , set
   , remove
   , purge
-  
+
   -- * Query Operations
   , contains
   , peek
   , peekOrInsert
   , containsOrSet
   , peekOrSet
-  
+
   -- * Cache Information
   , keys
-  , getKeys
   , size
-  , getSize
-  , len
-  , getAge
+  , age
   ) where
 
 import qualified Data.HashPSQ as HashPSQ
 import           Data.Hashable (Hashable)
-import           Data.Maybe (isNothing, isJust, fromMaybe)
+import           Data.Maybe (isNothing, isJust)
 import           Prelude hiding (lookup)
 import           Control.DeepSeq (NFData, rnf)
 import           Data.Int
@@ -75,7 +71,7 @@ import           GHC.Types (Type)
 -- | Cache policy selection for different eviction strategies
 type CachePolicy :: Type
 data CachePolicy = LFUDA  -- ^ Least Frequently Used with Dynamic Aging
-                 | GDSF   -- ^ Greedy Dual-Size Frequency 
+                 | GDSF   -- ^ Greedy Dual-Size Frequency
                  | LFU    -- ^ Least Frequently Used (no dynamic aging)
                  deriving stock (Eq, Show, Generic)
                  deriving anyclass (NFData)
@@ -97,12 +93,14 @@ type Size :: Type
 type Size = Int64
 
 -- | Result of an eviction operation
-data EvictionResult k v = 
-  EvictionResult 
+type EvictionResult :: Type -> Type -> Type
+type role EvictionResult representational representational
+data EvictionResult k v =
+  EvictionResult
   { evicted :: !Bool  -- ^ Whether an eviction occurred
   , evictedKey :: !(Maybe k)  -- ^ The key that was evicted (if any)
   , evictedValue :: !(Maybe v)  -- ^ The value that was evicted (if any)
-  } deriving (Show, Eq, Generic)
+  } deriving stock (Show, Eq, Generic)
 
 -- | LFUDA cache based on hashing with various policies.
 type role LfudaCache representational representational
@@ -116,10 +114,10 @@ data LfudaCache k v = LfudaCache
   }
 
 instance (Show k, Show v) => Show (LfudaCache k v) where
-  show c = "LfudaCache { capacity=" ++ show (lfudaCapacity c) ++ 
-           ", size=" ++ show (lfudaSize c) ++ 
-           ", age=" ++ show (lfudaAge c) ++ 
-           ", policy=" ++ show (lfudaPolicy c) ++ 
+  show c = "LfudaCache { capacity=" ++ show (lfudaCapacity c) ++
+           ", size=" ++ show (lfudaSize c) ++
+           ", age=" ++ show (lfudaAge c) ++
+           ", policy=" ++ show (lfudaPolicy c) ++
            ", entries=" ++ show (lfudaSize c) ++ " }"
 
 instance (Eq k, Eq v, Hashable k, Ord k) => Eq (LfudaCache k v) where
@@ -130,17 +128,17 @@ instance (Eq k, Eq v, Hashable k, Ord k) => Eq (LfudaCache k v) where
              lfudaQueue c1 == lfudaQueue c2
 
 instance (NFData k, NFData v) => NFData (LfudaCache k v) where
-  rnf (LfudaCache cap cacheSize age policy queue) =
-    rnf cap `seq` rnf cacheSize `seq` rnf age `seq` rnf policy `seq` rnf queue
+  rnf (LfudaCache cap cacheSize cacheAge policy queue) =
+    rnf cap `seq` rnf cacheSize `seq` rnf cacheAge `seq` rnf policy `seq` rnf queue
 
 -- Manual implementation of Functor
 instance (Hashable k, Ord k) => Functor (LfudaCache k) where
-  fmap f (LfudaCache cap cacheSize age policy queue) =
-    LfudaCache 
-      cap 
-      cacheSize 
-      age 
-      policy 
+  fmap f (LfudaCache cap cacheSize cacheAge policy queue) =
+    LfudaCache
+      cap
+      cacheSize
+      cacheAge
+      policy
       (fmapQueue f queue)
     where
       fmapQueue :: (a -> b) -> HashPSQ.HashPSQ k Priority (Frequency, Size, a) -> HashPSQ.HashPSQ k Priority (Frequency, Size, b)
@@ -155,11 +153,11 @@ instance (Hashable k, Ord k) => Foldable (LfudaCache k) where
 
 -- Manual implementation of Traversable
 instance (Hashable k, Ord k) => Traversable (LfudaCache k) where
-  traverse f (LfudaCache cap cacheSize age policy queue) = 
-    (\q -> LfudaCache cap cacheSize age policy q) <$> traverseQueue f queue
+  traverse f (LfudaCache cap cacheSize cacheAge policy queue) =
+    (\q -> LfudaCache cap cacheSize cacheAge policy q) <$> traverseQueue f queue
     where
-      traverseQueue :: (Applicative g) => (a -> g b) 
-                    -> HashPSQ.HashPSQ k Priority (Frequency, Size, a) 
+      traverseQueue :: (Applicative g) => (a -> g b)
+                    -> HashPSQ.HashPSQ k Priority (Frequency, Size, a)
                     -> g (HashPSQ.HashPSQ k Priority (Frequency, Size, b))
       traverseQueue g q = HashPSQ.fromList <$> traverse transformEntry (HashPSQ.toList q)
         where
@@ -214,7 +212,7 @@ newWithEvict :: Int -> CachePolicy -> LfudaCache k v
 newWithEvict capacity policy
   | capacity < 1 = error "LfudaCache.new: capacity < 1"
   | otherwise    =
-      LfudaCache 
+      LfudaCache
         { lfudaCapacity = capacity
         , lfudaSize     = 0
         , lfudaAge      = 0
@@ -225,13 +223,13 @@ newWithEvict capacity policy
 -- | Calculate priority for an entry based on policy
 {-# INLINE calculatePriority #-}
 calculatePriority :: CachePolicy -> Frequency -> Size -> Age -> Priority
-calculatePriority policy freq entrySize age = case policy of
-  LFUDA -> freq + age
-  GDSF  -> freq + age * entrySize  -- Size factor for GDSF
+calculatePriority policy freq entrySize cacheAge = case policy of
+  LFUDA -> freq + cacheAge
+  GDSF  -> freq + cacheAge * entrySize  -- Size factor for GDSF
   LFU   -> freq                     -- Pure frequency for LFU
 
 -- | Common logic for insert operations
-prepareInsert :: (Hashable k, Ord k) => k -> v -> LfudaCache k v 
+prepareInsert :: (Hashable k, Ord k) => k -> v -> LfudaCache k v
               -> (Bool, LfudaCache k v)
 prepareInsert key val c =
   let initialFreq = 1
@@ -249,11 +247,11 @@ prepareInsert key val c =
 -- Returns (eviction result, updated cache)
 trim :: (Hashable k, Ord k) => LfudaCache k v -> (EvictionResult k v, LfudaCache k v)
 trim c
-  | lfudaSize c <= lfudaCapacity c = 
+  | lfudaSize c <= lfudaCapacity c =
       (EvictionResult False Nothing Nothing, c)
-  | otherwise = 
+  | otherwise =
       case HashPSQ.findMin (lfudaQueue c) of
-        Nothing -> 
+        Nothing ->
           (EvictionResult False Nothing Nothing, c)  -- This should not happen in practice
         Just (k, _, (freq, _, v)) ->
           -- For non-LFU policies, set the age to the frequency of the evicted item
@@ -272,7 +270,7 @@ trim c
              else (result, c'')      -- Otherwise return this eviction
 
 -- | Insert an element into the 'LfudaCache'.
--- Returns a tuple with a boolean indicating if an eviction occurred, 
+-- Returns a tuple with a boolean indicating if an eviction occurred,
 -- and the updated cache.
 --
 -- >>> let c = empty 1
@@ -317,21 +315,16 @@ insertView key val c =
        (Just k, Just v) -> (Just (k, v), c'')
        _ -> (Nothing, c'')
 
--- | Lookup an element in an 'LfudaCache' and increment its frequency.
--- Alias for 'get' for backward compatibility.
-lookup :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe (v, LfudaCache k v)
-lookup = get
-
 -- | Get an element from the cache and update its frequency.
 --
 -- >>> let c = empty 2
 -- >>> let (_, c') = insert "key1" "value1" c
--- >>> get "key1" c'
+-- >>> lookup "key1" c'
 -- Just ("value1",LfudaCache { capacity=2, size=1, age=0, policy=LFUDA, entries=1 })
--- >>> get "key2" c'
+-- >>> lookup "key2" c'
 -- Nothing
-get :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe (v, LfudaCache k v)
-get k c = 
+lookup :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe (v, LfudaCache k v)
+lookup k c =
   case HashPSQ.lookup k (lfudaQueue c) of
     Nothing -> Nothing
     Just (_, (freq, entrySize, v)) ->
@@ -361,7 +354,7 @@ contains k c = isJust $ HashPSQ.lookup k (lfudaQueue c)
 -- >>> peek "key2" c'
 -- Nothing
 peek :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe v
-peek k c = 
+peek k c =
   case HashPSQ.lookup k (lfudaQueue c) of
     Nothing -> Nothing
     Just (_, (_, _, v)) -> Just v
@@ -460,10 +453,10 @@ purge c = c { lfudaSize  = 0
             }
 
 -- | Get the current age of the cache.
--- 
+--
 -- The age increases when items are evicted from the cache.
-getAge :: LfudaCache k v -> Age
-getAge = lfudaAge
+age :: LfudaCache k v -> Age
+age = lfudaAge
 
 -- | Get all keys in the cache, ordered by priority (highest to lowest).
 --
@@ -473,31 +466,11 @@ getAge = lfudaAge
 -- >>> keys c''
 -- ["key1","key2"]
 keys :: (Hashable k, Ord k) => LfudaCache k v -> [k]
-keys c = 
+keys c =
   -- Sort by priority in descending order (highest frequency first)
-  map (\(k, _, _) -> k) $ 
+  map (\(k, _, _) -> k) $
   reverse $  -- Reverse to get descending order (highest priority first)
   HashPSQ.toList (lfudaQueue c)
-
--- | Get all keys in the cache.
--- Alias for 'keys' for Go API compatibility.
---
--- >>> let c = empty 2
--- >>> let (_, c') = insert "key1" "value1" c
--- >>> let (_, c'') = insert "key2" "value2" c'
--- >>> getKeys c''
--- ["key1","key2"]
-getKeys :: (Hashable k, Ord k) => LfudaCache k v -> [k]
-getKeys = keys
-
--- | Get the number of items in the cache.
---
--- >>> let c = empty 2
--- >>> let (_, c') = insert "key1" "value1" c
--- >>> len c'
--- 1
-len :: LfudaCache k v -> Int
-len = lfudaSize
 
 -- | Get the current size of the cache.
 -- Currently just returns the number of items, but could be extended
@@ -509,13 +482,3 @@ len = lfudaSize
 -- 1
 size :: LfudaCache k v -> Int
 size = lfudaSize
-
--- | Get the current size of the cache.
--- Alias for 'size' for Go API compatibility.
---
--- >>> let c = empty 2
--- >>> let (_, c') = insert "key1" "value1" c
--- >>> getSize c'
--- 1
-getSize :: LfudaCache k v -> Int
-getSize = lfudaSize

@@ -13,6 +13,9 @@ extra-source-files:
 
 language: GHC2021
 
+default-extensions:
+- NoImplicitPrelude
+
 ghc-options:
 - -Weverything
 - -Wno-deprecations
@@ -38,33 +41,25 @@ ghc-options:
 - -Werror=partial-fields
 - -Werror=redundant-constraints
 
-dependencies:
-  - base
-  - deepseq
-  - hashable
-  - psqueues
-  - vector
-  - ghc-prim
-
 library:
   source-dirs: src
   exposed-modules:
     - Data.LfudaCache
-  ghc-options:
-    - -Wall
+  dependencies:
+    - base
+    - deepseq
+    - hashable
+    - psqueues
+    - ghc-prim
 
 tests:
   lfuda-test:
     main: Main.hs
     source-dirs: test
     dependencies:
+      - base
       - lfudacaching
-      - containers
-      - hspec
-      - QuickCheck
-      - transformers
       - tasty
       - tasty-hunit
-      - random
     other-modules:
       - Test.Data.LfudaCache
