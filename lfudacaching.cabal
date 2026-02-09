@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.38.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -42,6 +42,20 @@ library
     , psqueues
   default-language: GHC2021
 
+executable lfuda-demo
+  main-is: Main.hs
+  other-modules:
+      Paths_lfudacaching
+  hs-source-dirs:
+      app
+  default-extensions:
+      NoImplicitPrelude
+  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+  build-depends:
+      base
+    , lfudacaching
+  default-language: GHC2021
+
 test-suite lfuda-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -57,4 +71,20 @@ test-suite lfuda-test
     , lfudacaching
     , tasty
     , tasty-hunit
+  default-language: GHC2021
+
+benchmark lfuda-bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_lfudacaching
+  hs-source-dirs:
+      bench
+  default-extensions:
+      NoImplicitPrelude
+  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints -O2 -rtsopts
+  build-depends:
+      base
+    , lfudacaching
+    , tasty-bench
   default-language: GHC2021

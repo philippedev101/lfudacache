@@ -1,15 +1,149 @@
 # lfudacaching
 
-## Todo
-* Fix warnings in test code
-* Add tests for newLFU
-* More tests for newGDSF
-* Review library code again
-* Review test code again
-* Add benchmarks
-* Add readme
-* Add demo program
-* Make simpler API
+A pure Haskell implementation of cache data structures with multiple eviction policies:
 
-https://grok.com/chat/d3fb1a8c-6615-41dd-b829-6aeae9deba77
-https://grok.com/chat/f9b1d975-b754-4a06-95fa-697f7344dd28
+- **LFUDA** (Least Frequently Used with Dynamic Aging) - Prevents cache pollution by aging out stale entries
+- **GDSF** (Greedy Dual-Size Frequency) - Factors in entry size alongside frequency
+- **LFU** (Least Frequently Used) - Classic frequency-based eviction without aging
+
+Based on the Go implementation from [lfuda-go](https://github.com/bparli/lfuda-go).
+
+## Installation
+
+Add `lfudacaching` to your `package.yaml` dependencies:
+
+```yaml
+dependencies:
+  - lfudacaching
+```
+
+Or in your `.cabal` file:
+
+```cabal
+build-depends: lfudacaching
+```
+
+## Usage
+
+Note: `Data.LfudaCache` exports its own `lookup`, so you need to hide it from `Prelude`.
+
+```haskell
+import Data.LfudaCache
+import Prelude hiding (lookup)
+
+main :: IO ()
+main = do
+  -- Create a cache with capacity 100 using LFUDA policy
+  let cache = newLFUDA 100
+
+  -- Insert key-value pairs (returns whether an eviction occurred)
+  let (_, cache1) = insert "alice" 42 cache
+  let (_, cache2) = insert "bob" 99 cache1
+
+  -- Lookup updates frequency (affects eviction priority)
+  case lookup "alice" cache2 of
+    Just (val, cache2') -> do
+      putStrLn $ "Found alice: " ++ show val
+      -- Use cache2' going forward (frequency of "alice" was bumped)
+      print (size cache2')
+    Nothing -> putStrLn "Not found"
+
+  -- Peek reads without updating frequency
+  case peek "bob" cache2 of
+    Just val -> putStrLn $ "Peeked bob: " ++ show val
+    Nothing  -> putStrLn "Not found"
+
+  -- Check membership without frequency update
+  print $ contains "alice" cache2  -- True
+
+  -- Remove an entry
+  let (removed, cache3) = remove "alice" cache2
+  print removed  -- True
+
+  -- Cache info
+  print $ size cache3  -- 1
+  print $ keys cache3  -- ["bob"]
+```
+
+A demo program is included — run it with `stack exec lfuda-demo`.
+
+## API Overview
+
+### Construction
+
+| Function   | Description                          |
+|------------|--------------------------------------|
+| `newLFUDA` | Create cache with LFUDA policy       |
+| `newGDSF`  | Create cache with GDSF policy        |
+| `newLFU`   | Create cache with LFU policy         |
+| `newCache` | Create cache with specified policy   |
+
+### Operations
+
+| Function         | Description                                        |
+|------------------|----------------------------------------------------|
+| `insert` / `set` | Insert a key-value pair, returns eviction status   |
+| `insertView`     | Insert, returning the evicted entry if any         |
+| `lookup`         | Get value and update frequency                     |
+| `peek`           | Get value without updating frequency               |
+| `contains`       | Check if key exists (no frequency update)          |
+| `containsOrSet`  | Check or insert if missing                         |
+| `peekOrInsert`   | Peek or insert if missing                          |
+| `peekOrSet`      | Peek or insert, returns previous value             |
+| `remove`         | Remove an entry                                    |
+| `purge`          | Clear all entries                                  |
+| `keys`           | Get all keys ordered by priority (highest first)   |
+| `size`           | Current number of entries                          |
+| `age`            | Current cache age                                  |
+
+### Typeclass Instances
+
+`LfudaCache k` is an instance of `Functor`, `Foldable`, and `Traversable`, allowing you to map, fold, and traverse over cached values.
+
+## Eviction Policies
+
+### LFUDA
+Priority = frequency + cache age. When an entry is evicted, the cache age is set to the evicted entry's frequency. This prevents long-lived but infrequently accessed entries from dominating the cache.
+
+### GDSF
+Priority = frequency + cache age * entry size. Similar to LFUDA but factors in entry size, giving larger entries higher eviction resistance. Currently all entries use a fixed size of 1, so GDSF behaves similarly to LFUDA.
+
+### LFU
+Priority = frequency. Simple frequency counting with no aging. The cache age never changes. Entries that were popular in the past stay cached even if they are no longer accessed.
+
+## Important Behavioral Notes
+
+### Priorities are sticky
+
+Entry priorities are stored in the underlying priority queue and are **only recalculated on `lookup`**, not when the cache age changes. This means:
+
+- After an eviction raises the cache age, existing entries keep their old (lower) priorities.
+- A freshly inserted entry gets `priority = 1 + current_age`, which can be *higher* than an old entry whose priority was computed when the age was lower.
+- To "refresh" an entry's priority to account for the current age, you must `lookup` it.
+
+This is standard LFUDA behavior and means that entries which haven't been accessed recently will naturally drift toward eviction as the cache ages.
+
+### Re-inserting a key resets its frequency
+
+Calling `insert` (or `set`) on an existing key replaces the value **and resets its frequency to 1**. If you've built up a high frequency through many `lookup` calls, re-inserting the same key throws that away. Use `lookup` to access entries without resetting frequency, or check with `contains`/`peek` before inserting.
+
+### Eviction happens during insert
+
+When the cache is full, `insert` evicts the lowest-priority entry **before returning**. If you insert a key you intend to immediately remove, the eviction still happens. This can remove entries you intended to keep.
+
+### Purge does not reset age
+
+`purge` clears all entries and resets the size to 0, but the cache age is preserved. Entries inserted after a purge will have their priority calculated using the pre-purge age.
+
+## Building
+
+```bash
+stack build        # Build library
+stack test         # Run tests (32 tests)
+stack bench        # Run benchmarks
+stack exec lfuda-demo  # Run demo program
+```
+
+## Todo
+
+- [ ] Make simpler API

@@ -47,6 +47,13 @@ library:
     - psqueues
     - ghc-prim
 
+executables:
+  lfuda-demo:
+    main: Main.hs
+    source-dirs: app
+    dependencies:
+      - lfudacaching
+
 tests:
   lfuda-test:
     main: Main.hs
@@ -57,3 +64,14 @@ tests:
       - tasty-hunit
     other-modules:
       - Test.Data.LfudaCache
+
+benchmarks:
+  lfuda-bench:
+    main: Main.hs
+    source-dirs: bench
+    ghc-options:
+      - -O2
+      - -rtsopts
+    dependencies:
+      - lfudacaching
+      - tasty-bench
