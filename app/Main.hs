@@ -17,9 +17,9 @@ main = do
   putStrLn ""
 
   -- Insert some entries
-  let (_, c1) = insert "alice" (100 :: Int) cache
-  let (_, c2) = insert "bob"   200 c1
-  let (_, c3) = insert "carol" 300 c2
+  let c1 = insert "alice" (100 :: Int) cache
+  let c2 = insert "bob"   200 c1
+  let c3 = insert "carol" 300 c2
   putStrLn $ "Inserted alice=100, bob=200, carol=300"
   putStrLn $ "Size: " ++ show (size c3)
   putStrLn $ "Keys: " ++ show (keys c3)
@@ -33,8 +33,12 @@ main = do
                    ) c3 [1..3 :: Int]
 
   -- Insert a 4th entry - should evict lowest frequency entry
-  let (evicted, c5) = insert "dave" 400 c4
-  putStrLn $ "Inserted dave=400, eviction occurred: " ++ show evicted
+  -- Use insertView to see what was evicted
+  let (evicted, c5) = insertView "dave" 400 c4
+  putStrLn $ "Inserted dave=400, eviction occurred: " ++ show (evicted /= Nothing)
+  case evicted of
+    Just (k, v) -> putStrLn $ "Evicted: " ++ show k ++ "=" ++ show v
+    Nothing     -> pure ()
   putStrLn $ "Keys after eviction: " ++ show (keys c5)
   putStrLn $ "alice still in cache: " ++ show (contains "alice" c5)
   putStrLn ""
@@ -77,14 +81,14 @@ comparePolicies = do
     let cache0 :: LfudaCache String Int
         cache0 = newCache capacity policy
         -- Insert first 3
-        cache1 = foldl' (\c (k, v) -> snd (insert k v c)) cache0 (take 3 items)
+        cache1 = foldl' (\c (k, v) -> insert k v c) cache0 (take 3 items)
     -- Bump frequency of "a"
     let cache2 = foldl' (\c _ -> case lookup "a" c of
                             Just (_, c') -> c'
                             Nothing -> c
                          ) cache1 [1..2 :: Int]
     -- Insert remaining 2
-    let cache3 = foldl' (\c (k, v) -> snd (insert k v c)) cache2 (drop 3 items)
+    let cache3 = foldl' (\c (k, v) -> insert k v c) cache2 (drop 3 items)
 
     putStrLn $ name ++ ":"
     putStrLn $ "  Surviving keys: " ++ show (keys cache3)

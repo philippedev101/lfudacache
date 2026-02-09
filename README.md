@@ -36,9 +36,9 @@ main = do
   -- Create a cache with capacity 100 using LFUDA policy
   let cache = newLFUDA 100
 
-  -- Insert key-value pairs (returns whether an eviction occurred)
-  let (_, cache1) = insert "alice" 42 cache
-  let (_, cache2) = insert "bob" 99 cache1
+  -- Insert key-value pairs
+  let cache1 = insert "alice" 42 cache
+  let cache2 = insert "bob" 99 cache1
 
   -- Lookup updates frequency (affects eviction priority)
   case lookup "alice" cache2 of
@@ -57,8 +57,7 @@ main = do
   print $ contains "alice" cache2  -- True
 
   -- Remove an entry
-  let (removed, cache3) = remove "alice" cache2
-  print removed  -- True
+  let cache3 = remove "alice" cache2
 
   -- Cache info
   print $ size cache3  -- 1
@@ -80,21 +79,23 @@ A demo program is included — run it with `stack exec lfuda-demo`.
 
 ### Operations
 
-| Function         | Description                                        |
-|------------------|----------------------------------------------------|
-| `insert` / `set` | Insert a key-value pair, returns eviction status   |
-| `insertView`     | Insert, returning the evicted entry if any         |
-| `lookup`         | Get value and update frequency                     |
-| `peek`           | Get value without updating frequency               |
-| `contains`       | Check if key exists (no frequency update)          |
-| `containsOrSet`  | Check or insert if missing                         |
-| `peekOrInsert`   | Peek or insert if missing                          |
-| `peekOrSet`      | Peek or insert, returns previous value             |
-| `remove`         | Remove an entry                                    |
-| `purge`          | Clear all entries                                  |
-| `keys`           | Get all keys ordered by priority (highest first)   |
-| `size`           | Current number of entries                          |
-| `age`            | Current cache age                                  |
+| Function     | Description                                    |
+|--------------|------------------------------------------------|
+| `insert`     | Insert a key-value pair                        |
+| `insertView` | Insert, returning the evicted entry if any     |
+| `lookup`     | Get value and update frequency                 |
+| `peek`       | Get value without updating frequency           |
+| `contains`   | Check if key exists (no frequency update)      |
+| `remove`     | Remove an entry                                |
+| `purge`      | Clear all entries                              |
+
+### Cache Information
+
+| Function | Description                                      |
+|----------|--------------------------------------------------|
+| `keys`   | Get all keys ordered by priority (highest first) |
+| `size`   | Current number of entries                        |
+| `age`    | Current cache age                                |
 
 ### Typeclass Instances
 
@@ -125,7 +126,7 @@ This is standard LFUDA behavior and means that entries which haven't been access
 
 ### Re-inserting a key resets its frequency
 
-Calling `insert` (or `set`) on an existing key replaces the value **and resets its frequency to 1**. If you've built up a high frequency through many `lookup` calls, re-inserting the same key throws that away. Use `lookup` to access entries without resetting frequency, or check with `contains`/`peek` before inserting.
+Calling `insert` on an existing key replaces the value **and resets its frequency to 1**. If you've built up a high frequency through many `lookup` calls, re-inserting the same key throws that away. Use `lookup` to access entries without resetting frequency, or check with `contains`/`peek` before inserting.
 
 ### Eviction happens during insert
 
@@ -139,11 +140,8 @@ When the cache is full, `insert` evicts the lowest-priority entry **before retur
 
 ```bash
 stack build        # Build library
-stack test         # Run tests (32 tests)
+stack test         # Run tests (29 tests)
 stack bench        # Run benchmarks
 stack exec lfuda-demo  # Run demo program
 ```
 
-## Todo
-
-- [ ] Make simpler API

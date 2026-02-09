@@ -5,7 +5,7 @@ module Test.Data.LfudaCache
 import Test.Tasty
 import Test.Tasty.HUnit
 import Control.Monad
-import Data.Maybe (isJust, isNothing)
+import Data.Maybe (isNothing)
 import Data.LfudaCache
 import Data.Foldable (foldl')
 import Prelude hiding (lookup)
@@ -16,10 +16,8 @@ tests :: TestTree
 tests = testGroup "LFUDA Cache Tests"
   [ testCase "Basic LFUDA Operations" testLFUDA
   , testCase "GDSF Test" testGDSF
-  , testCase "Set Returns Eviction Status" testLFUDASet
+  , testCase "Insert Eviction Via InsertView" testInsertEviction
   , testCase "Contains Doesn't Update Frequency" testLFUDAContains
-  , testCase "ContainsOrSet Functionality" testLFUDAContainsOrSet
-  , testCase "PeekOrSet Functionality" testLFUDAPeekOrSet
   , testCase "Peek Doesn't Update Frequency" testLFUDAPeek
   , testCase "Remove Operation" testLFUDARemove
   , testCase "Age Tracking" testLFUDAAge
@@ -39,7 +37,6 @@ tests = testGroup "LFUDA Cache Tests"
   , testCase "Edge: InsertView Self-Replace" testInsertViewSelfReplace
   , testCase "Edge: InsertView Evicts Correct Entry" testInsertViewEvictsCorrect
   , testCase "Edge: Remove Nonexistent" testRemoveNonexistent
-  , testCase "Edge: ContainsOrSet Preserves Value" testContainsOrSetPreservesValue
   , testCase "Edge: Equal Frequency Eviction" testEqualFrequencyEviction
   , testCase "Edge: LFUDA Age Accumulation" testAgeAccumulation
   , testCase "Edge: Lookup After Insert Same Key" testLookupAfterReinsert
@@ -54,11 +51,13 @@ testLFUDA = do
   let initialCache :: LfudaCache Int Int
       initialCache = newCache 666 LFUDA
 
-  -- Track number of evictions
+  -- Track number of evictions using insertView
   let insertAndTrackEvictions :: (LfudaCache Int Int, Int) -> Int -> (LfudaCache Int Int, Int)
       insertAndTrackEvictions (cache, count) i =
-        let (evicted', cache') = set i i cache
-            newCount = if evicted' then count + 1 else count
+        let (evictedEntry, cache') = insertView i i cache
+            newCount = case evictedEntry of
+              Just _  -> count + 1
+              Nothing -> count
         in (cache', newCount)
 
   let finalCacheAndCount = foldl' insertAndTrackEvictions (initialCache, 0) [100..999 :: Int]
@@ -86,8 +85,8 @@ testLFUDA = do
     let result = lookup i finalCache
     assertBool ("Key " ++ show i ++ " should not be in cache") (isNothing result)
 
-  -- Set a newLFUDA value and check it
-  let (_, cacheWithNewVal) = set (256 :: Int) (256 :: Int) finalCache
+  -- Set a new value and check it
+  let cacheWithNewVal = insert (256 :: Int) (256 :: Int) finalCache
 
   let result = lookup (256 :: Int) cacheWithNewVal
   case result of
@@ -95,9 +94,9 @@ testLFUDA = do
     Nothing -> assertFailure "Key 256 should be in cache"
 
   -- Check most frequently used key after updating key 256
-  let (_, updatedCache) = case result of
-        Just (_, c') -> ((), c')
-        Nothing -> ((), cacheWithNewVal)
+  let updatedCache = case result of
+        Just (_, c') -> c'
+        Nothing -> cacheWithNewVal
 
   let keysAfterUpdate = keys updatedCache
   assertBool "Keys should be present after update" (not (null keysAfterUpdate))
@@ -117,14 +116,12 @@ testGDSF = do
 
   -- Insert elements with power of 2 values
   let cacheWith10to19 = foldl' (\cache i ->
-          let (_, cache') = set i (2 ^ i) cache
-          in cache'
+          insert i (2 ^ i) cache
         ) initialCache [10..19 :: Int]
 
   -- Insert more elements with same key/value
   let finalCache = foldl' (\cache i ->
-          let (_, cache') = set i i cache
-          in cache'
+          insert i i cache
         ) cacheWith10to19 [100..999 :: Int]
 
   let len = size finalCache
@@ -136,7 +133,7 @@ testGDSF = do
   -- Check values that should be in cache
   forM_ keys2 $ \k -> do
     let result = lookup k finalCache
-    assertBool "Get should return a result" (isJust result)
+    assertBool "Get should return a result" (not (isNothing result))
     case result of
       Just (v, _) ->
         if k >= 10 && k <= 19
@@ -144,8 +141,8 @@ testGDSF = do
           else assertEqual "Value should match key for other keys" k v
       Nothing -> assertFailure $ "Key " ++ show k ++ " should be in cache"
 
-  -- Set a newLFUDA value and check it
-  let (_, cacheWithNewVal) = set (256 :: Int) (256 :: Int) finalCache
+  -- Set a new value and check it
+  let cacheWithNewVal = insert (256 :: Int) (256 :: Int) finalCache
 
   let result = lookup (256 :: Int) cacheWithNewVal
   case result of
@@ -153,34 +150,35 @@ testGDSF = do
     Nothing -> assertFailure "Key 256 should be in cache"
 
   -- Check most frequently used key after updating key 256
-  let (_, updatedCache) = case result of
-        Just (_, c') -> ((), c')
-        Nothing -> ((), cacheWithNewVal)
+  let updatedCache = case result of
+        Just (_, c') -> c'
+        Nothing -> cacheWithNewVal
 
   let keysAfterUpdate = keys updatedCache
   -- Key 256 should have higher frequency due to the get operation above
   assertBool "Keys should be present after update" (not (null keysAfterUpdate))
 
-testLFUDASet :: Assertion
-testLFUDASet = do
+testInsertEviction :: Assertion
+testInsertEviction = do
   let cache :: LfudaCache Int Int
       cache = newCache 1 LFUDA
 
-  -- First set should not evict
-  let (evicted1, cache') = set (1 :: Int) (1 :: Int) cache
-  assertBool "Should not have evicted" (not evicted1)
+  -- First insert should not evict
+  let (evicted1, _) = insertView (1 :: Int) (1 :: Int) cache
+  assertEqual "Should not have evicted" Nothing evicted1
 
-  -- Second set should evict
-  let (evicted2, _) = set (2 :: Int) (2 :: Int) cache'
-  assertBool "Should have evicted" evicted2
+  -- Second insert (different key) should evict
+  let c1 = insert (1 :: Int) (1 :: Int) cache
+  let (evicted2, _) = insertView (2 :: Int) (2 :: Int) c1
+  assertBool "Should have evicted" (evicted2 /= Nothing)
 
 testLFUDAContains :: Assertion
 testLFUDAContains = do
   let initialCache :: LfudaCache Int Int
       initialCache = newCache 2 LFUDA
 
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
+  let cache1 = insert (1 :: Int) (1 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (2 :: Int) cache1
 
   -- Bump hits for key 1
   let finalCache1 = foldl' (\c _ ->
@@ -202,62 +200,13 @@ testLFUDAContains = do
     (k:_) -> assertEqual "Key 1 should still be most frequently used" (1 :: Int) k
     [] -> assertFailure "Keys list should not be empty"
 
-testLFUDAContainsOrSet :: Assertion
-testLFUDAContainsOrSet = do
-  let initialCache :: LfudaCache Int Int
-      initialCache = newLFUDA 2
-
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
-
-  -- Test for existing key
-  let (contains1, eviction1, _) = containsOrSet (1 :: Int) (1 :: Int) cache2
-  assertBool "Key 1 should be contained" contains1
-  assertBool "Nothing should have been evicted" (not eviction1)
-
-  -- Test for newLFUDA key
-  let (contains3, eviction3, _) = containsOrSet (3 :: Int) (3 :: Int) cache2
-  assertBool "Key 3 should not have been contained" (not contains3)
-  assertBool "Key 3 should have been set with eviction" eviction3
-
-testLFUDAPeekOrSet :: Assertion
-testLFUDAPeekOrSet = do
-  let initialCache :: LfudaCache Int Int
-      initialCache = newLFUDA 2
-
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
-
-  -- Test for existing key
-  let (prev1, contains1, set1, _) = peekOrSet (1 :: Int) (1 :: Int) cache2
-  assertEqual "Previous value should be Just 1" (Just 1) prev1
-  assertBool "Key 1 should be contained" contains1
-  assertBool "Nothing should have been set" (not set1)
-
-  -- Test for newLFUDA key
-  let (prev3, contains3, set3, cache3) = peekOrSet (3 :: Int) (3 :: Int) cache2
-  assertEqual "Previous value should be Nothing" Nothing prev3
-  assertBool "Key 3 should not have been contained" (not contains3)
-  assertBool "Key 3 should have been set" set3
-
-  -- Bump hits for key 3
-  let cache3' = case lookup (3 :: Int) cache3 of
-        Just (_, c) -> c
-        Nothing -> cache3
-
-  -- Test for key 3 again
-  let (prev3', contains3', set3', _) = peekOrSet (3 :: Int) (3 :: Int) cache3'
-  assertEqual "Previous value should be Just 3" (Just 3) prev3'
-  assertBool "Key 3 should be contained" contains3'
-  assertBool "Nothing should have been set" (not set3')
-
 testLFUDAPeek :: Assertion
 testLFUDAPeek = do
   let initialCache :: LfudaCache Int Int
       initialCache = newLFUDA 2
 
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
+  let cache1 = insert (1 :: Int) (1 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (2 :: Int) cache1
 
   -- Peek should not update frequency
   let result1 = peek (1 :: Int) cache2
@@ -269,7 +218,7 @@ testLFUDAPeek = do
         Nothing -> cache2
 
   -- Adding key 3 should evict key 1 (lowest frequency)
-  let (_, cache3) = set (3 :: Int) (3 :: Int) cache2'
+  let cache3 = insert (3 :: Int) (3 :: Int) cache2'
 
   -- Key 1 should be evicted
   let containsKey1 = contains (1 :: Int) cache3
@@ -280,8 +229,8 @@ testLFUDARemove = do
   let initialCache :: LfudaCache Int Int
       initialCache = newLFUDA 2
 
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (2 :: Int) cache1
+  let cache1 = insert (1 :: Int) (1 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (2 :: Int) cache1
 
   let result1 = lookup (1 :: Int) cache2
   case result1 of
@@ -289,8 +238,8 @@ testLFUDARemove = do
     Nothing -> assertFailure "Key 1 should be in cache"
 
   -- Remove key 1
-  let (removed, cache2') = remove (1 :: Int) cache2
-  assertBool "Remove should return True" removed
+  assertBool "Key 1 should be in cache before removal" (contains (1 :: Int) cache2)
+  let cache2' = remove (1 :: Int) cache2
 
   let result1' = lookup (1 :: Int) cache2'
   assertBool "Key 1 should not be in cache after removal" (isNothing result1')
@@ -304,7 +253,7 @@ testLFUDAAge = do
       initialCache = newLFUDA 1
 
   -- Set key 1 with initial frequency 1
-  let (_, cache1) = set (1 :: Int) (1 :: Int) initialCache
+  let cache1 = insert (1 :: Int) (1 :: Int) initialCache
 
   -- Bump hits on key 1 to frequency 2
   let cache1' = case lookup (1 :: Int) cache1 of
@@ -313,11 +262,9 @@ testLFUDAAge = do
 
   -- Set key 2 - but key 2 will be immediately evicted because
   -- it has lower priority (1) than key 1 (2)
-  let (evicted, cache2) = set (2 :: Int) (2 :: Int) cache1'
-  assertBool "Set operation should have evicted key 2" evicted
+  let cache2 = insert (2 :: Int) (2 :: Int) cache1'
 
   -- The age should now be 1 (the frequency of the evicted key 2)
-  -- NOT 2 as the original test expected
   let age1 = age cache2
   assertEqual "Cache age should be 1" 1 age1
 
@@ -328,8 +275,7 @@ testLFUDASize = do
 
   -- Insert elements
   let finalCache = foldl' (\cache i ->
-          let (_, cache') = set i i cache
-          in cache'
+          insert i i cache
         ) initialCache [10..29 :: Int]
 
   -- Check size
@@ -350,8 +296,8 @@ testReinsertResetsFrequency = do
       cache = newLFUDA 2
 
   -- Insert keys 1 and 2
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  let c2 = insert (2 :: Int) (20 :: Int) c1
 
   -- Lookup key 1 many times to build up its frequency
   let c3 = foldl' (\c _ -> case lookup (1 :: Int) c of
@@ -360,15 +306,14 @@ testReinsertResetsFrequency = do
                    ) c2 [1..10 :: Int]
 
   -- Key 1 now has high frequency. Re-insert it with new value - resets freq to 1!
-  let (_, c4) = set (1 :: Int) (100 :: Int) c3
+  let c4 = insert (1 :: Int) (100 :: Int) c3
 
   -- Verify the value was updated
   assertEqual "Value should be updated to 100" (Just 100) (peek (1 :: Int) c4)
 
   -- Now insert key 3. Key 1 has freq 1 again, key 2 also has freq 1.
   -- One of them gets evicted.
-  let (evicted, c5) = set (3 :: Int) (30 :: Int) c4
-  assertBool "Should evict something" evicted
+  let c5 = insert (3 :: Int) (30 :: Int) c4
   assertEqual "Size should be 2" 2 (size c5)
 
 -- Capacity 1 cache: every new distinct key causes eviction
@@ -378,19 +323,20 @@ testCapacity1 = do
       cache = newLFUDA 1
 
   -- First insert: no eviction
-  let (ev1, c1) = set (1 :: Int) (10 :: Int) cache
-  assertBool "First insert should not evict" (not ev1)
+  let (ev1, _) = insertView (1 :: Int) (10 :: Int) cache
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  assertEqual "First insert should not evict" Nothing ev1
   assertEqual "Size should be 1" 1 (size c1)
 
   -- Same key: replaces value, no eviction (size stays 1)
-  let (ev2, c2) = set (1 :: Int) (20 :: Int) c1
-  assertBool "Re-insert same key should not evict" (not ev2)
+  let (ev2, c2) = insertView (1 :: Int) (20 :: Int) c1
+  assertEqual "Re-insert same key should not evict" Nothing ev2
   assertEqual "Size should still be 1" 1 (size c2)
   assertEqual "Value should be updated" (Just 20) (peek (1 :: Int) c2)
 
   -- Different key: must evict
-  let (ev3, c3) = set (2 :: Int) (30 :: Int) c2
-  assertBool "Different key should evict" ev3
+  let (ev3, c3) = insertView (2 :: Int) (30 :: Int) c2
+  assertBool "Different key should evict" (ev3 /= Nothing)
   assertEqual "Size should still be 1" 1 (size c3)
   assertBool "Key 1 should be gone" (not (contains (1 :: Int) c3))
   assertEqual "Key 2 should be present" (Just 30) (peek (2 :: Int) c3)
@@ -409,30 +355,30 @@ testSizeConsistency = do
   assertEqual "Empty cache size" 0 (size cache)
 
   -- Insert 3
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
+  let c1 = insert (1 :: Int) (10 :: Int) cache
   assertEqual "After 1 insert" 1 (size c1)
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
-  let (_, c3) = set (3 :: Int) (30 :: Int) c2
+  let c2 = insert (2 :: Int) (20 :: Int) c1
+  let c3 = insert (3 :: Int) (30 :: Int) c2
   assertEqual "After 3 inserts" 3 (size c3)
 
   -- Remove 1
-  let (_, c4) = remove (1 :: Int) c3
+  let c4 = remove (1 :: Int) c3
   assertEqual "After remove" 2 (size c4)
   assertEqual "Keys count matches size" (size c4) (length (keys c4))
 
   -- Re-insert key 1 (no eviction, room available)
-  let (ev, c5) = set (1 :: Int) (100 :: Int) c4
-  assertBool "Should not evict (room available)" (not ev)
+  let (ev, c5) = insertView (1 :: Int) (100 :: Int) c4
+  assertEqual "Should not evict (room available)" Nothing ev
   assertEqual "After re-insert" 3 (size c5)
 
   -- Re-insert existing key 2 (replace, no size change)
-  let (_, c6) = set (2 :: Int) (200 :: Int) c5
+  let c6 = insert (2 :: Int) (200 :: Int) c5
   assertEqual "After replace" 3 (size c6)
   assertEqual "Keys count matches size" (size c6) (length (keys c6))
 
   -- Insert 4th key to force eviction
-  let (ev2, c7) = set (4 :: Int) (40 :: Int) c6
-  assertBool "Should evict" ev2
+  let (ev2, c7) = insertView (4 :: Int) (40 :: Int) c6
+  assertBool "Should evict" (ev2 /= Nothing)
   assertEqual "After eviction" 3 (size c7)
   assertEqual "Keys count matches size" (size c7) (length (keys c7))
 
@@ -442,7 +388,7 @@ testSizeConsistency = do
   assertEqual "Keys empty after purge" 0 (length (keys c8))
 
   -- Insert after purge
-  let (_, c9) = set (5 :: Int) (50 :: Int) c8
+  let c9 = insert (5 :: Int) (50 :: Int) c8
   assertEqual "After insert post-purge" 1 (size c9)
 
 -- Purge clears entries but does NOT reset age
@@ -451,7 +397,7 @@ testPurgePreservesAge = do
   let cache :: LfudaCache Int Int
       cache = newLFUDA 1
 
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
+  let c1 = insert (1 :: Int) (10 :: Int) cache
   -- Bump frequency to 3
   let c2 = foldl' (\c _ -> case lookup (1 :: Int) c of
                       Just (_, c') -> c'
@@ -459,7 +405,7 @@ testPurgePreservesAge = do
                    ) c1 [1..2 :: Int]
 
   -- Evict key 1 by inserting key 2
-  let (_, c3) = set (2 :: Int) (20 :: Int) c2
+  let c3 = insert (2 :: Int) (20 :: Int) c2
   let ageBeforePurge = age c3
   assertBool "Age should be > 0 after eviction" (ageBeforePurge > 0)
 
@@ -475,8 +421,8 @@ testOpsAfterPurge = do
       cache = newLFUDA 2
 
   -- Fill cache, then purge
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  let c2 = insert (2 :: Int) (20 :: Int) c1
   let c3 = purge c2
 
   -- All operations should work on purged cache
@@ -486,16 +432,16 @@ testOpsAfterPurge = do
   assertEqual "Keys on purged cache" [] (keys c3)
 
   -- Insert should work
-  let (ev1, c4) = set (3 :: Int) (30 :: Int) c3
-  assertBool "Should not evict (empty after purge)" (not ev1)
+  let (ev1, c4) = insertView (3 :: Int) (30 :: Int) c3
+  assertEqual "Should not evict (empty after purge)" Nothing ev1
   assertEqual "Value accessible" (Just 30) (peek (3 :: Int) c4)
-  let (ev2, c5) = set (4 :: Int) (40 :: Int) c4
-  assertBool "Should not evict (still room)" (not ev2)
+  let (ev2, c5) = insertView (4 :: Int) (40 :: Int) c4
+  assertEqual "Should not evict (still room)" Nothing ev2
   assertEqual "Size should be 2" 2 (size c5)
 
   -- Eviction should work after purge
-  let (ev3, c6) = set (5 :: Int) (50 :: Int) c5
-  assertBool "Should evict now (full)" ev3
+  let (ev3, c6) = insertView (5 :: Int) (50 :: Int) c5
+  assertBool "Should evict now (full)" (ev3 /= Nothing)
   assertEqual "Size still 2" 2 (size c6)
 
 -- insertView on an existing key should NOT report eviction
@@ -504,8 +450,8 @@ testInsertViewSelfReplace = do
   let cache :: LfudaCache Int Int
       cache = newLFUDA 2
 
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  let c2 = insert (2 :: Int) (20 :: Int) c1
 
   -- insertView same key: no eviction, just replacement
   let (evicted, c3) = insertView (1 :: Int) (100 :: Int) c2
@@ -516,7 +462,7 @@ testInsertViewSelfReplace = do
   -- insertView on capacity-1 cache, same key
   let cache1 :: LfudaCache Int Int
       cache1 = newLFUDA 1
-  let (_, c4) = set (1 :: Int) (10 :: Int) cache1
+  let c4 = insert (1 :: Int) (10 :: Int) cache1
   let (evicted2, c5) = insertView (1 :: Int) (100 :: Int) c4
   assertEqual "No eviction for self-replace on cap-1" Nothing evicted2
   assertEqual "Size should be 1" 1 (size c5)
@@ -527,7 +473,7 @@ testInsertViewEvictsCorrect = do
   let cache :: LfudaCache Int Int
       cache = newLFUDA 1
 
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
+  let c1 = insert (1 :: Int) (10 :: Int) cache
 
   -- Insert key 2, should evict key 1 and report it
   let (evicted, c2) = insertView (2 :: Int) (20 :: Int) c1
@@ -549,36 +495,21 @@ testRemoveNonexistent = do
       cache = newLFUDA 5
 
   -- Remove from empty cache
-  let (removed1, c1) = remove (1 :: Int) cache
-  assertBool "Remove from empty should return False" (not removed1)
+  let c1 = remove (1 :: Int) cache
   assertEqual "Size should still be 0" 0 (size c1)
 
   -- Insert then remove nonexistent
-  let (_, c2) = set (1 :: Int) (10 :: Int) c1
-  let (removed2, c3) = remove (999 :: Int) c2
-  assertBool "Remove nonexistent should return False" (not removed2)
+  let c2 = insert (1 :: Int) (10 :: Int) c1
+  assertBool "Key 999 should not be in cache" (not (contains (999 :: Int) c2))
+  let c3 = remove (999 :: Int) c2
   assertEqual "Size should still be 1" 1 (size c3)
 
   -- Remove then remove same key again
-  let (removed3, c4) = remove (1 :: Int) c3
-  assertBool "Remove existing should return True" removed3
-  let (removed4, c5) = remove (1 :: Int) c4
-  assertBool "Remove already-removed should return False" (not removed4)
+  assertBool "Key 1 should be in cache" (contains (1 :: Int) c3)
+  let c4 = remove (1 :: Int) c3
+  assertBool "Key 1 should be gone after removal" (not (contains (1 :: Int) c4))
+  let c5 = remove (1 :: Int) c4
   assertEqual "Size should be 0" 0 (size c5)
-
--- containsOrSet should NOT update the value if key already exists
-testContainsOrSetPreservesValue :: Assertion
-testContainsOrSetPreservesValue = do
-  let cache :: LfudaCache Int Int
-      cache = newLFUDA 2
-
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-
-  -- containsOrSet with a different value for existing key
-  let (existed, _, c2) = containsOrSet (1 :: Int) (999 :: Int) c1
-  assertBool "Key should exist" existed
-  -- Value should NOT have changed
-  assertEqual "Value should be original 10, not 999" (Just 10) (peek (1 :: Int) c2)
 
 -- When all entries have the same frequency, eviction should still work
 testEqualFrequencyEviction :: Assertion
@@ -587,13 +518,13 @@ testEqualFrequencyEviction = do
       cache = newLFUDA 3
 
   -- Insert 3 entries, all with frequency 1
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
-  let (_, c3) = set (3 :: Int) (30 :: Int) c2
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  let c2 = insert (2 :: Int) (20 :: Int) c1
+  let c3 = insert (3 :: Int) (30 :: Int) c2
 
   -- Insert 4th, must evict one (all have same freq)
-  let (ev, c4) = set (4 :: Int) (40 :: Int) c3
-  assertBool "Must evict something" ev
+  let (ev, c4) = insertView (4 :: Int) (40 :: Int) c3
+  assertBool "Must evict something" (ev /= Nothing)
   assertEqual "Size must be 3" 3 (size c4)
   assertEqual "Keys count must be 3" 3 (length (keys c4))
 
@@ -611,13 +542,13 @@ testAgeAccumulation = do
   assertEqual "Initial age" 0 (age cache)
 
   -- Round 1: insert key 1, bump freq to 3, evict with key 2
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
+  let c1 = insert (1 :: Int) (10 :: Int) cache
   let c2 = foldl' (\c _ -> case lookup (1 :: Int) c of
                       Just (_, c') -> c'
                       Nothing -> c
                    ) c1 [1..2 :: Int]
   -- key 1 has freq 3
-  let (_, c3) = set (2 :: Int) (20 :: Int) c2
+  let c3 = insert (2 :: Int) (20 :: Int) c2
   -- key 2 (freq 1) was evicted, age should be 1
   let age1 = age c3
   assertEqual "Age after first eviction cycle" 1 age1
@@ -628,25 +559,19 @@ testAgeAccumulation = do
                       Nothing -> c
                    ) c3 [1..3 :: Int]
   -- key 1 now has freq 6
-  let (_, c5) = set (3 :: Int) (30 :: Int) c4
+  let c5 = insert (3 :: Int) (30 :: Int) c4
   -- key 3 (freq 1) evicted, but its priority was 1 + age1 = 2
   -- age should be set to the evicted entry's frequency (1), NOT the priority
-  -- Wait - in the code: newAge = freq (the raw frequency of evicted entry)
   let age2 = age c5
   assertEqual "Age after second eviction cycle" 1 age2
-  -- Hmm, actually age is set to freq of evicted entry, which is always 1
-  -- for freshly inserted entries. So age stays at 1 unless we evict
-  -- entries with higher frequency.
 
-  -- Round 3: let's create a scenario where an entry with freq > 1 gets evicted.
-  -- key 1 has high freq. Insert key 4 and look it up a few times.
-  -- But cache is size 1, so key 4 gets evicted immediately if key 1 has higher priority.
-  -- We need to use a size-2 cache for this.
+  -- Round 3: create a scenario where an entry with freq > 1 gets evicted.
+  -- Use a size-2 cache for this.
   let cache2 :: LfudaCache Int Int
       cache2 = newLFUDA 2
 
-  let (_, d1) = set (10 :: Int) (100 :: Int) cache2
-  let (_, d2) = set (20 :: Int) (200 :: Int) d1
+  let d1 = insert (10 :: Int) (100 :: Int) cache2
+  let d2 = insert (20 :: Int) (200 :: Int) d1
   -- Bump key 20 freq to 3
   let d3 = foldl' (\c _ -> case lookup (20 :: Int) c of
                       Just (_, c') -> c'
@@ -654,7 +579,7 @@ testAgeAccumulation = do
                    ) d2 [1..2 :: Int]
   -- key 10 has freq 1, key 20 has freq 3
   -- Insert key 30: evicts key 10 (freq 1), age becomes 1
-  let (_, d4) = set (30 :: Int) (300 :: Int) d3
+  let d4 = insert (30 :: Int) (300 :: Int) d3
   assertEqual "Age after evicting freq-1 entry" 1 (age d4)
 
   -- Now bump key 30 freq to 4
@@ -667,8 +592,7 @@ testAgeAccumulation = do
   -- Insert key 40: priority = 1 + age(1) = 2
   -- Eviction order by priority: key 40 (2) < key 20 (3) < key 30 (5)
   -- key 40 gets evicted immediately (lowest priority), age = freq(40) = 1
-  -- This demonstrates that priorities are "sticky" - only recalculated on lookup
-  let (_, d6) = set (40 :: Int) (400 :: Int) d5
+  let d6 = insert (40 :: Int) (400 :: Int) d5
   assertEqual "Age stays 1 (key 40 evicted, not key 20)" 1 (age d6)
 
   -- To actually evict a high-freq entry, we need to lookup key 20 first
@@ -676,12 +600,9 @@ testAgeAccumulation = do
   let d7 = case lookup (20 :: Int) d6 of
         Just (_, c') -> c'  -- key 20 freq becomes 4, priority = 4 + 1 = 5
         Nothing -> d6
-  -- Now bump key 40 so it has higher priority than key 20
-  -- Actually, key 40 was just evicted. Let's just verify the age behavior
-  -- by evicting key 20 after it gets a refreshed priority
   -- key 20 now has freq 4, priority 5. key 30 has freq 4, priority 5.
   -- Insert key 50: priority = 1 + 1 = 2. Still lowest, key 50 evicted.
-  let (_, d8) = set (50 :: Int) (500 :: Int) d7
+  let d8 = insert (50 :: Int) (500 :: Int) d7
   assertEqual "Age still 1 (new entry evicted again)" 1 (age d8)
 
 -- After re-inserting a key, lookup should return the new value
@@ -691,8 +612,8 @@ testLookupAfterReinsert = do
   let cache :: LfudaCache Int Int
       cache = newLFUDA 2
 
-  let (_, c1) = set (1 :: Int) (10 :: Int) cache
-  let (_, c2) = set (2 :: Int) (20 :: Int) c1
+  let c1 = insert (1 :: Int) (10 :: Int) cache
+  let c2 = insert (2 :: Int) (20 :: Int) c1
 
   -- Bump key 1 frequency high
   let c3 = foldl' (\c _ -> case lookup (1 :: Int) c of
@@ -701,7 +622,7 @@ testLookupAfterReinsert = do
                    ) c2 [1..5 :: Int]
 
   -- Re-insert key 1 with new value (resets freq to 1!)
-  let (_, c4) = set (1 :: Int) (999 :: Int) c3
+  let c4 = insert (1 :: Int) (999 :: Int) c3
 
   -- Lookup should return new value
   case lookup (1 :: Int) c4 of
@@ -715,8 +636,7 @@ testLookupAfterReinsert = do
         Nothing -> c4
 
   -- Insert key 3: should evict key 1 (lowest freq after re-insert)
-  let (ev, c6) = set (3 :: Int) (30 :: Int) c5
-  assertBool "Should evict" ev
+  let c6 = insert (3 :: Int) (30 :: Int) c5
   assertBool "Key 1 should be evicted (freq was reset)" (not (contains (1 :: Int) c6))
   assertBool "Key 2 should survive" (contains (2 :: Int) c6)
 
@@ -728,8 +648,8 @@ testInsertRemoveCycles = do
 
   -- Insert and remove 100 keys rapidly
   let finalCache = foldl' (\c i ->
-          let (_, c1) = set i i c
-              (_, c2) = remove i c1
+          let c1 = insert i i c
+              c2 = remove i c1
           in c2
         ) cache [1..100 :: Int]
 
@@ -740,9 +660,9 @@ testInsertRemoveCycles = do
   let cache10 :: LfudaCache Int Int
       cache10 = newLFUDA 10
   let finalCache2 = foldl' (\c i ->
-          let (_, c1) = set i i c
+          let c1 = insert i i c
           in if even i
-             then snd (remove i c1)
+             then remove i c1
              else c1
         ) cache10 [1..10 :: Int]
 
@@ -756,9 +676,9 @@ testInsertRemoveCycles = do
   -- Capacity 5, insert keys 1-10, keep odd, remove even.
   -- At i=10, cache has [1,3,5,7,9] (full), inserting 10 evicts an odd key first!
   let finalCache3 = foldl' (\c i ->
-          let (_, c1) = set i i c
+          let c1 = insert i i c
           in if even i
-             then snd (remove i c1)
+             then remove i c1
              else c1
         ) cache [1..10 :: Int]
 
@@ -772,7 +692,7 @@ testLFU = do
       initialCache = newLFU 5
 
   -- Insert 5 elements
-  let cache1 = foldl' (\c i -> snd (set i (i * 10) c)) initialCache [1..5 :: Int]
+  let cache1 = foldl' (\c i -> insert i (i * 10) c) initialCache [1..5 :: Int]
   assertEqual "Cache size should be 5" 5 (size cache1)
 
   -- All 5 elements should be present
@@ -781,8 +701,8 @@ testLFU = do
     assertEqual ("Value for key " ++ show i) (Just (i * 10)) result
 
   -- Insert 6th element, should evict one
-  let (evicted6, cache2) = set (6 :: Int) (60 :: Int) cache1
-  assertBool "Should have evicted" evicted6
+  let (evicted6, cache2) = insertView (6 :: Int) (60 :: Int) cache1
+  assertBool "Should have evicted" (evicted6 /= Nothing)
   assertEqual "Cache size should still be 5" 5 (size cache2)
 
   -- Key 6 should be present
@@ -795,7 +715,7 @@ testLFUNoAging = do
       initialCache = newLFU 1
 
   -- Insert key 1, then bump its frequency
-  let (_, cache1) = set (1 :: Int) (10 :: Int) initialCache
+  let cache1 = insert (1 :: Int) (10 :: Int) initialCache
   let cache1' = case lookup (1 :: Int) cache1 of
         Just (_, c) -> c
         Nothing -> cache1
@@ -804,8 +724,7 @@ testLFUNoAging = do
   assertEqual "Age should be 0 initially" 0 (age cache1')
 
   -- Insert key 2, which evicts key 2 (lower priority) since key 1 has freq 2
-  let (evicted2, cache2) = set (2 :: Int) (20 :: Int) cache1'
-  assertBool "Should have evicted" evicted2
+  let cache2 = insert (2 :: Int) (20 :: Int) cache1'
 
   -- Age should STILL be 0 for LFU (no dynamic aging)
   assertEqual "Age should remain 0 for LFU" 0 (age cache2)
@@ -819,9 +738,9 @@ testLFUFrequencyEviction = do
       initialCache = newLFU 3
 
   -- Insert 3 elements
-  let (_, cache1) = set (1 :: Int) (10 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (20 :: Int) cache1
-  let (_, cache3) = set (3 :: Int) (30 :: Int) cache2
+  let cache1 = insert (1 :: Int) (10 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (20 :: Int) cache1
+  let cache3 = insert (3 :: Int) (30 :: Int) cache2
 
   -- Bump frequency of key 1 (3 extra lookups -> freq 4)
   let cache3' = foldl' (\c _ ->
@@ -836,8 +755,7 @@ testLFUFrequencyEviction = do
         Nothing -> cache3'
 
   -- Key 2 still has freq 1 (lowest), so inserting key 4 should evict key 2
-  let (evicted4, cache4) = set (4 :: Int) (40 :: Int) cache3''
-  assertBool "Should have evicted" evicted4
+  let cache4 = insert (4 :: Int) (40 :: Int) cache3''
 
   -- Key 2 should be gone (lowest frequency)
   assertBool "Key 2 should be evicted" (not (contains (2 :: Int) cache4))
@@ -877,8 +795,8 @@ testGDSFSizeEviction = do
   let initialCache :: LfudaCache Int Int
       initialCache = newGDSF 2
 
-  let (_, cache1) = set (1 :: Int) (10 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (20 :: Int) cache1
+  let cache1 = insert (1 :: Int) (10 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (20 :: Int) cache1
 
   -- Bump key 1 frequency to 2
   let cache2' = case lookup (1 :: Int) cache2 of
@@ -886,8 +804,7 @@ testGDSFSizeEviction = do
         Nothing -> cache2
 
   -- Insert key 3, should evict key 2 (freq 1 < key 1's freq 2)
-  let (evicted3, cache3) = set (3 :: Int) (30 :: Int) cache2'
-  assertBool "Should have evicted" evicted3
+  let cache3 = insert (3 :: Int) (30 :: Int) cache2'
   assertBool "Key 2 should be evicted" (not (contains (2 :: Int) cache3))
   assertBool "Key 1 should survive" (contains (1 :: Int) cache3)
 
@@ -897,7 +814,7 @@ testGDSFAging = do
       initialCache = newGDSF 1
 
   -- Insert key 1, bump frequency to 3
-  let (_, cache1) = set (1 :: Int) (10 :: Int) initialCache
+  let cache1 = insert (1 :: Int) (10 :: Int) initialCache
   let cache1' = foldl' (\c _ ->
           case lookup (1 :: Int) c of
             Just (_, c') -> c'
@@ -907,7 +824,7 @@ testGDSFAging = do
   assertEqual "Age should be 0 before eviction" 0 (age cache1')
 
   -- Insert key 2, it will be evicted (freq 1 < key 1's freq 3)
-  let (_, cache2) = set (2 :: Int) (20 :: Int) cache1'
+  let cache2 = insert (2 :: Int) (20 :: Int) cache1'
 
   -- Age should now be 1 (frequency of the evicted key)
   assertEqual "Age should be 1 after eviction" 1 (age cache2)
@@ -920,9 +837,9 @@ testGDSFFrequencyAndSize = do
       initialCache = newGDSF 3
 
   -- Insert 3 entries
-  let (_, cache1) = set (1 :: Int) (10 :: Int) initialCache
-  let (_, cache2) = set (2 :: Int) (20 :: Int) cache1
-  let (_, cache3) = set (3 :: Int) (30 :: Int) cache2
+  let cache1 = insert (1 :: Int) (10 :: Int) initialCache
+  let cache2 = insert (2 :: Int) (20 :: Int) cache1
+  let cache3 = insert (3 :: Int) (30 :: Int) cache2
 
   -- Bump key 2's frequency to 3
   let cache3' = foldl' (\c _ ->
@@ -938,8 +855,7 @@ testGDSFFrequencyAndSize = do
 
   -- Key 1 has freq 1, Key 2 has freq 3, Key 3 has freq 2
   -- Insert key 4, should evict key 1 (lowest frequency)
-  let (evicted4, cache4) = set (4 :: Int) (40 :: Int) cache3''
-  assertBool "Should have evicted" evicted4
+  let cache4 = insert (4 :: Int) (40 :: Int) cache3''
   assertBool "Key 1 should be evicted (lowest freq)" (not (contains (1 :: Int) cache4))
   assertBool "Key 2 should survive" (contains (2 :: Int) cache4)
   assertBool "Key 3 should survive" (contains (3 :: Int) cache4)
@@ -998,8 +914,7 @@ benchmarkLFUDA = do
 
   -- Set operations
   let cacheAfterSet = foldl' (\cache i ->
-          let (_, cache') = set i i cache
-          in cache'
+          insert i i cache
         ) initialCache setTrace
 
   -- Get operations and count hits/misses
@@ -1030,7 +945,7 @@ benchmarkLFUDARand = do
       processItem (cache, h, m) (idx, val) =
         -- Set on even indices
         let cache' = if even idx
-                    then let (_, c) = set val val cache in c
+                    then insert val val cache
                     else cache
 
             -- Check get result

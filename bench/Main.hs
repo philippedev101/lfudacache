@@ -34,12 +34,12 @@ main = defaultMain
 -- | Insert n items into a cache of given capacity
 insertN :: CachePolicy -> Int -> Int -> LfudaCache Int Int
 insertN policy capacity n =
-  foldl' (\c i -> snd (set i i c)) (newCache capacity policy) [0..n-1]
+  foldl' (\c i -> insert i i c) (newCache capacity policy) [0..n-1]
 
 -- | Lookup items that are in the cache (hits)
 lookupHit :: CachePolicy -> Int -> Int -> LfudaCache Int Int
 lookupHit policy capacity n =
-  let cache0 = foldl' (\c i -> snd (set i i c)) (newCache capacity policy) [0..capacity-1]
+  let cache0 = foldl' (\c i -> insert i i c) (newCache capacity policy) [0..capacity-1]
   in foldl' (\c i ->
         case lookup (i `mod` capacity) c of
           Just (_, c') -> c'
@@ -49,7 +49,7 @@ lookupHit policy capacity n =
 -- | Lookup items that are not in the cache (misses)
 lookupMiss :: CachePolicy -> Int -> Int -> LfudaCache Int Int
 lookupMiss policy capacity n =
-  let cache0 = foldl' (\c i -> snd (set i i c)) (newCache capacity policy) [0..capacity-1]
+  let cache0 = foldl' (\c i -> insert i i c) (newCache capacity policy) [0..capacity-1]
   in foldl' (\c i ->
         case lookup (capacity + i) c of
           Just (_, c') -> c'
@@ -61,7 +61,7 @@ mixedWorkload :: CachePolicy -> Int -> Int -> LfudaCache Int Int
 mixedWorkload policy capacity n =
   foldl' (\c i ->
     if even i
-    then snd (set (i `mod` (capacity * 2)) i c)
+    then insert (i `mod` (capacity * 2)) i c
     else case lookup (i `mod` (capacity * 2)) c of
            Just (_, c') -> c'
            Nothing -> c
@@ -70,7 +70,7 @@ mixedWorkload policy capacity n =
 -- | Contains check workload (no frequency update)
 containsWorkload :: CachePolicy -> Int -> Int -> Int
 containsWorkload policy capacity n =
-  let cache0 = foldl' (\c i -> snd (set i i c)) (newCache capacity policy) [0..capacity-1]
+  let cache0 = foldl' (\c i -> insert i i c) (newCache capacity policy) [0..capacity-1]
   in foldl' (\acc i ->
         if contains (i `mod` (capacity * 2)) cache0
         then acc + 1
