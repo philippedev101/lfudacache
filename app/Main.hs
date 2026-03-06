@@ -72,10 +72,12 @@ comparePolicies :: IO ()
 comparePolicies = do
   let capacity :: Int
       capacity = 3
-      items = [("a", 1 :: Int), ("b", 2), ("c", 3), ("d", 4), ("e", 5)]
+      items :: [(String, Int)]
+      items = [("a", 1), ("b", 2), ("c", 3), ("d", 4), ("e", 5)]
 
   -- For each policy, insert items and show what survives
-  let policies = [(LFUDA, "LFUDA"), (GDSF, "GDSF"), (LFU, "LFU")]
+  let policies :: [(CachePolicy, String)]
+      policies = [(LFUDA, "LFUDA"), (GDSF, "GDSF"), (LFU, "LFU")]
 
   mapM_ (\(policy, name) -> do
     let cache0 :: LfudaCache String Int

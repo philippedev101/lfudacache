@@ -107,7 +107,7 @@ executable lfuda-demo
       UnliftedDatatypes
       UnliftedNewtypes
       ViewPatterns
-  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Wno-missing-kind-signatures -Wno-missing-deriving-strategies -Wno-unticked-promoted-constructors -Wno-missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields
+  ghc-options: -Weverything -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -Wno-safe -Wno-unsafe -Werror=deprecations -Werror=identities -Werror=incomplete-patterns -Werror=incomplete-record-updates -Werror=missing-fields -Werror=missing-methods -Werror=ambiguous-fields -Werror=missing-export-lists -Werror=missing-local-signatures -Werror=monomorphism-restriction -Werror=type-defaults -Werror=orphans -Werror=unused-imports -Werror=name-shadowing -Werror=missing-kind-signatures -Werror=missing-deriving-strategies -Werror=unticked-promoted-constructors -Werror=missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations
   build-depends:
       base >=4.19 && <5
     , lfudacaching
@@ -150,7 +150,7 @@ test-suite lfuda-test
       UnliftedDatatypes
       UnliftedNewtypes
       ViewPatterns
-  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Wno-missing-kind-signatures -Wno-missing-deriving-strategies -Wno-unticked-promoted-constructors -Wno-missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields
+  ghc-options: -Weverything -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -Wno-safe -Wno-unsafe -Werror=deprecations -Werror=identities -Werror=incomplete-patterns -Werror=incomplete-record-updates -Werror=missing-fields -Werror=missing-methods -Werror=ambiguous-fields -Werror=missing-export-lists -Werror=missing-local-signatures -Werror=monomorphism-restriction -Werror=type-defaults -Werror=orphans -Werror=unused-imports -Werror=name-shadowing -Werror=missing-kind-signatures -Werror=missing-deriving-strategies -Werror=unticked-promoted-constructors -Werror=missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations
   build-depends:
       base >=4.19 && <5
     , lfudacaching
