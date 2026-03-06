@@ -1,21 +1,58 @@
 {-# LANGUAGE StrictData #-}
 {-|
-Pure API to an LFUDA (Least Frequently Used with Dynamic Aging) cache.
+Module      : Data.LfudaCache
+Description : Pure LFUDA, GDSF, and LFU cache implementations
+Copyright   : (c) 2026 philippedev101
+License     : Apache-2.0
+Maintainer  : philippedev101@gmail.com
+Stability   : experimental
 
-The LFUDA algorithm is a variant of LFU that uses dynamic aging to prevent
-cache pollution by infrequently accessed but long-lived entries. It works by
-incrementing a cache age value when items are evicted and including this
-age in the priority calculations for cache entries.
+Pure, immutable cache with three eviction policies: __LFUDA__, __GDSF__, and __LFU__.
 
-This module provides implementations for:
-- LFUDA: Least Frequently Used with Dynamic Aging
-- GDSF: Greedy Dual-Size Frequency
-- LFU: Least Frequently Used (without dynamic aging)
+== Eviction policies
 
-Based on the Go implementation from github.com/bparli/lfuda-go
+* __LFUDA__ (Least Frequently Used with Dynamic Aging) — combines access
+  frequency with a global /age/ counter that advances on every eviction.
+  New entries start with @frequency + age@ as their priority, which prevents
+  long-lived but rarely accessed items from permanently occupying the cache
+  (a common weakness of plain LFU).
+
+* __GDSF__ (Greedy Dual-Size Frequency) — extends LFUDA by factoring in
+  entry size: @frequency + age × size@. Useful when cached values have
+  varying costs.
+
+* __LFU__ (Least Frequently Used) — evicts the entry with the lowest access
+  frequency. No aging is applied, so frequently accessed items are never
+  evicted regardless of how long ago they were last accessed.
+
+== Quick start
+
+@
+import Data.LfudaCache
+import Prelude hiding ('lookup')
+
+example :: (Maybe String, LfudaCache String String)
+example =
+  let cache  = 'newLFUDA' 100
+      cache' = 'insert' \"hello\" \"world\" cache
+  in  case 'lookup' \"hello\" cache' of
+        Just (val, cache'') -> (Just val, cache'')
+        Nothing             -> (Nothing, cache')
+@
+
+== Complexity
+
+All operations are /O(log n)/ in the number of cached entries, backed by a
+hash-priority search queue ('Data.HashPSQ.HashPSQ').
+
+== Lookup vs Peek
+
+'lookup' increments the entry's access frequency (affecting future eviction
+priority). 'peek' returns the value without any side effect on frequency —
+useful for monitoring or read-only inspection.
 -}
 module Data.LfudaCache
-  ( -- * Types
+  ( -- * Cache type
     LfudaCache
   , CachePolicy(..)
   , Age
@@ -26,18 +63,20 @@ module Data.LfudaCache
   , newLFU
   , newCache
 
-  -- * Operations
+  -- * Insertion
   , insert
   , insertView
+
+  -- * Lookup
   , lookup
+  , peek
+  , contains
+
+  -- * Deletion
   , remove
   , purge
 
-  -- * Query
-  , contains
-  , peek
-
-  -- * Cache Information
+  -- * Size and metadata
   , keys
   , size
   , age
@@ -53,31 +92,40 @@ import Prelude hiding (lookup)
 import qualified Data.HashPSQ as HashPSQ
 
 
--- | Cache policy selection for different eviction strategies
+-- | Eviction policy. See the module documentation for a description of each.
 type CachePolicy :: Type
-data CachePolicy = LFUDA  -- ^ Least Frequently Used with Dynamic Aging
-                 | GDSF   -- ^ Greedy Dual-Size Frequency
-                 | LFU    -- ^ Least Frequently Used (no dynamic aging)
-                 deriving stock (Eq, Show, Generic)
-                 deriving anyclass (NFData)
+data CachePolicy
+  = LFUDA  -- ^ Least Frequently Used with Dynamic Aging.
+           -- Priority = @frequency + age@.
+  | GDSF   -- ^ Greedy Dual-Size Frequency.
+           -- Priority = @frequency + age × size@.
+  | LFU    -- ^ Plain Least Frequently Used (no aging).
+           -- Priority = @frequency@.
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (NFData)
 
--- | Frequency of an element in the cache
+-- | Access count for a cache entry. Incremented on every 'lookup' hit.
 type Frequency :: Type
 type Frequency = Int64
 
--- | Age of the cache (used for dynamic aging)
+-- | Cache age counter. Under LFUDA\/GDSF this advances on every eviction,
+-- ensuring that newly inserted entries are not immediately evicted just
+-- because older entries accumulated high frequency counts.
 type Age :: Type
 type Age = Int64
 
--- | Priority in the cache is calculated differently based on the policy
+-- | Internal priority value computed from 'Frequency', 'Size', and 'Age'
+-- according to the active 'CachePolicy'. The entry with the /lowest/
+-- priority is evicted first.
 type Priority :: Type
 type Priority = Int64
 
--- | Size of cache entries (used for GDSF)
+-- | Logical size of a cache entry (used by the 'GDSF' policy).
+-- Currently fixed at @1@ for every entry.
 type Size :: Type
 type Size = Int64
 
--- | Result of an eviction operation
+-- | Internal result of an eviction attempt (not exported).
 type EvictionResult :: Type -> Type -> Type
 type role EvictionResult representational representational
 data EvictionResult k v =
@@ -88,7 +136,12 @@ data EvictionResult k v =
   } deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData)
 
--- | LFUDA cache based on hashing with various policies.
+-- | An immutable, bounded cache parameterised by key type @k@ and value
+-- type @v@. The eviction strategy is determined by the 'CachePolicy' chosen
+-- at construction time.
+--
+-- The cache supports 'Functor', 'Foldable', and 'Traversable' over values,
+-- as well as 'Eq', 'Show', and 'NFData'.
 type LfudaCache :: Type -> Type -> Type
 type role LfudaCache representational representational
 data LfudaCache k v = LfudaCache
@@ -147,43 +200,34 @@ instance (Hashable k, Ord k) => Traversable (LfudaCache k) where
           transformEntry :: (k, Priority, (Frequency, Size, v)) -> f (k, Priority, (Frequency, Size, v'))
           transformEntry (k, p, (freq, s, v)) = (\v' -> (k, p, (freq, s, v'))) <$> g v
 
--- | Create a new cache with the specified policy.
+-- | Create a new empty cache with the given maximum capacity and eviction
+-- policy. Calls 'error' if @capacity < 1@.
 --
--- Returns an error if capacity is less than 1.
+-- >>> size (newCache 100 LFUDA)
+-- 0
 {-# INLINABLE newCache #-}
 newCache :: Int -> CachePolicy -> LfudaCache k v
 newCache capacity policy
   | capacity < 1 = error "LfudaCache.new: capacity < 1"
   | otherwise    = LfudaCache capacity 0 0 policy HashPSQ.empty
 
--- | Create a new cache with LFUDA policy.
---
--- >>> let cache = newLFUDA 10
--- >>> lfudaPolicy cache
--- LFUDA
+-- | @'newLFUDA' cap@ — shorthand for @'newCache' cap 'LFUDA'@.
 {-# INLINABLE newLFUDA #-}
 newLFUDA :: Int -> LfudaCache k v
 newLFUDA capacity = newCache capacity LFUDA
 
--- | Create a new cache with GDSF policy.
---
--- >>> let cache = newGDSF 10
--- >>> lfudaPolicy cache
--- GDSF
+-- | @'newGDSF' cap@ — shorthand for @'newCache' cap 'GDSF'@.
 {-# INLINABLE newGDSF #-}
 newGDSF :: Int -> LfudaCache k v
 newGDSF capacity = newCache capacity GDSF
 
--- | Create a new cache with LFU policy.
---
--- >>> let cache = newLFU 10
--- >>> lfudaPolicy cache
--- LFU
+-- | @'newLFU' cap@ — shorthand for @'newCache' cap 'LFU'@.
 {-# INLINABLE newLFU #-}
 newLFU :: Int -> LfudaCache k v
 newLFU capacity = newCache capacity LFU
 
--- | Calculate priority for an entry based on policy
+-- | Compute the eviction priority for an entry under the given policy.
+-- Lower priority ⇒ evicted first.
 {-# INLINE calculatePriority #-}
 calculatePriority :: CachePolicy -> Frequency -> Size -> Age -> Priority
 calculatePriority LFUDA freq _ ageValue = freq + ageValue
@@ -229,14 +273,16 @@ trim c
                      }
           in (EvictionResult True (Just k) (Just v), c')
 
--- | Insert an element into the 'LfudaCache'.
+-- | Insert a key–value pair. If the key already exists its value is
+-- replaced and its frequency is reset to @1@. When the cache is at
+-- capacity the lowest-priority entry is evicted first.
 --
--- If the cache is full, the lowest-priority entry is evicted.
--- Use 'insertView' if you need to know which entry was evicted.
+-- Use 'insertView' if you need to know /which/ entry was evicted.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> size c'
+-- /O(log n)/
+--
+-- >>> let c = insert "a" 1 (newLFUDA 2)
+-- >>> size c
 -- 1
 {-# INLINABLE insert #-}
 insert :: (Hashable k, Ord k) => k -> v -> LfudaCache k v -> LfudaCache k v
@@ -245,16 +291,17 @@ insert key val c =
       (_, c'') = trim c'
   in c''
 
--- | Insert an element into the 'LfudaCache' returning the evicted
--- element if any.
+-- | Like 'insert', but also returns the evicted entry (if any) as
+-- @'Just' (key, value)@, or 'Nothing' when no eviction was necessary.
 --
--- >>> let c = newLFUDA 1
--- >>> let (evicted1, c') = insertView "key1" "value1" c
--- >>> evicted1
+-- /O(log n)/
+--
+-- >>> let (ev1, c)  = insertView "a" 1 (newLFUDA 1)
+-- >>> ev1
 -- Nothing
--- >>> let (evicted2, c'') = insertView "key2" "value2" c'
--- >>> evicted2
--- Just ("key1","value1")
+-- >>> let (ev2, _) = insertView "b" 2 c
+-- >>> ev2
+-- Just ("a",1)
 {-# INLINABLE insertView #-}
 insertView :: (Hashable k, Ord k) => k -> v -> LfudaCache k v -> (Maybe (k, v), LfudaCache k v)
 insertView key val c =
@@ -264,13 +311,17 @@ insertView key val c =
        (Just k, Just v) -> (Just (k, v), c'')
        _ -> (Nothing, c'')
 
--- | Get an element from the cache and update its frequency.
+-- | Look up a key, returning its value and an updated cache with the
+-- entry's frequency incremented. Returns 'Nothing' on a cache miss.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> lookup "key1" c'
--- Just ("value1",LfudaCache { capacity=2, size=1, age=0, policy=LFUDA, entries=1 })
--- >>> lookup "key2" c'
+-- Use 'peek' if you do not want the frequency bump.
+--
+-- /O(log n)/
+--
+-- >>> let c = insert "a" 1 (newLFUDA 2)
+-- >>> fmap fst (lookup "a" c)
+-- Just 1
+-- >>> lookup "z" c
 -- Nothing
 {-# INLINABLE lookup #-}
 lookup :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe (v, LfudaCache k v)
@@ -283,38 +334,44 @@ lookup k c =
           c' = c { lfudaQueue = HashPSQ.insert k newPriority (newFreq, entrySize, v) (lfudaQueue c) }
       in Just (v, c')
 
--- | Check if a key exists in the cache without updating its frequency.
+-- | Test whether a key is present in the cache. Does /not/ affect
+-- the entry's frequency.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> contains "key1" c'
+-- /O(log n)/
+--
+-- >>> let c = insert "a" 1 (newLFUDA 2)
+-- >>> contains "a" c
 -- True
--- >>> contains "key2" c'
+-- >>> contains "z" c
 -- False
 {-# INLINABLE contains #-}
 contains :: (Hashable k, Ord k) => k -> LfudaCache k v -> Bool
 contains k = HashPSQ.member k . lfudaQueue
 
--- | Peek at a value without updating its frequency.
+-- | Retrieve a value without incrementing its access frequency.
+-- Useful for read-only inspection, monitoring, or debugging.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> peek "key1" c'
--- Just "value1"
--- >>> peek "key2" c'
+-- /O(log n)/
+--
+-- >>> let c = insert "a" 1 (newLFUDA 2)
+-- >>> peek "a" c
+-- Just 1
+-- >>> peek "z" c
 -- Nothing
 {-# INLINABLE peek #-}
 peek :: (Hashable k, Ord k) => k -> LfudaCache k v -> Maybe v
 peek k c = (\(_, (_, _, v)) -> v) <$> HashPSQ.lookup k (lfudaQueue c)
 
--- | Remove an item from the cache. No-op if the key is not present.
+-- | Remove a key from the cache. Returns the cache unchanged if the key
+-- is not present.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> size c'
--- 1
--- >>> size (remove "key1" c')
+-- /O(log n)/
+--
+-- >>> let c = insert "a" 1 (newLFUDA 2)
+-- >>> size (remove "a" c)
 -- 0
+-- >>> size (remove "z" c)
+-- 1
 {-# INLINABLE remove #-}
 remove :: (Hashable k, Ord k) => k -> LfudaCache k v -> LfudaCache k v
 remove k c =
@@ -324,14 +381,12 @@ remove k c =
                  , lfudaQueue = HashPSQ.delete k (lfudaQueue c)
                  }
 
--- | Purge all items from the cache.
+-- | Remove all entries from the cache, resetting 'size' to @0@.
+-- The capacity and policy are preserved.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> let c'' = insert "key2" "value2" c'
--- >>> size c''
--- 2
--- >>> size (purge c'')
+-- /O(1)/
+--
+-- >>> size (purge (insert "a" 1 (newLFUDA 2)))
 -- 0
 {-# INLINABLE purge #-}
 purge :: LfudaCache k v -> LfudaCache k v
@@ -339,30 +394,26 @@ purge c = c { lfudaSize  = 0
             , lfudaQueue = HashPSQ.empty
             }
 
--- | Get the current age of the cache.
+-- | The current age of the cache. Under 'LFUDA' and 'GDSF' the age
+-- advances each time an entry is evicted; under 'LFU' it stays at @0@.
 --
--- The age increases when items are evicted from the cache.
+-- /O(1)/
 {-# INLINABLE age #-}
 age :: LfudaCache k v -> Age
 age = lfudaAge
 
--- | Get all keys in the cache, ordered by priority (highest to lowest).
+-- | All keys currently in the cache, ordered from highest to lowest
+-- eviction priority (i.e. the entry most likely to survive eviction
+-- comes first).
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> let c'' = insert "key2" "value2" c'
--- >>> keys c''
--- ["key1","key2"]
+-- /O(n log n)/
 {-# INLINABLE keys #-}
 keys :: (Hashable k, Ord k) => LfudaCache k v -> [k]
 keys = map (\(k, _, _) -> k) . reverse . HashPSQ.toList . lfudaQueue
 
--- | Get the current size of the cache.
+-- | The number of entries currently stored in the cache.
 --
--- >>> let c = newLFUDA 2
--- >>> let c' = insert "key1" "value1" c
--- >>> size c'
--- 1
+-- /O(1)/
 {-# INLINABLE size #-}
 size :: LfudaCache k v -> Int
 size = lfudaSize
