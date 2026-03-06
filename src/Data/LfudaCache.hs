@@ -1,9 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE StrictData #-}
 {-|
 Pure API to an LFUDA (Least Frequently Used with Dynamic Aging) cache.

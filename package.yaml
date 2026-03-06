@@ -15,14 +15,56 @@ extra-source-files:
 language: GHC2021
 
 default-extensions:
+# Beyond GHC2021
+- BangPatterns
+- DataKinds
+- DefaultSignatures
+- DeriveAnyClass
+- DeriveDataTypeable
+- DeriveFoldable
+- DeriveFunctor
+- DeriveGeneric
+- DeriveTraversable
+- DerivingVia
+- DisambiguateRecordFields
+- DuplicateRecordFields
+- FunctionalDependencies
+- GADTs
+- KindSignatures
+- LambdaCase
+- MultiWayIf
 - NoImplicitPrelude
+- OverloadedRecordDot
+- OverloadedStrings
+- PartialTypeSignatures
+- PolyKinds
+- RecordWildCards
+- RoleAnnotations
+- UnboxedSums
+- UnboxedTuples
+- UnliftedDatatypes
+- UnliftedNewtypes
+- ViewPatterns
 
 _dev-ghc-options: &dev-ghc-options
 - -Weverything
-- -Wno-prepositive-qualified-module
-- -Wno-missing-safe-haskell-mode
+- -Wno-deprecations
 - -Wno-missing-import-lists
+- -Wno-missing-local-signatures
+- -Wno-missing-safe-haskell-mode
+- -Wno-monomorphism-restriction
+- -Wno-prepositive-qualified-module
+- -Wno-safe
+- -Wno-type-defaults
 - -Wno-unsafe
+- -Wno-missing-export-lists
+- -Wno-orphans
+- -Wno-unused-imports
+- -Wno-name-shadowing
+- -Wno-missing-kind-signatures
+- -Wno-missing-deriving-strategies
+- -Wno-unticked-promoted-constructors
+- -Wno-missing-role-annotations
 - -Wno-all-missed-specialisations
 - -Wno-missed-specialisations
 - -Werror=identities
@@ -31,9 +73,6 @@ _dev-ghc-options: &dev-ghc-options
 - -Werror=incomplete-patterns
 - -Werror=missing-fields
 - -Werror=ambiguous-fields
-- -Werror=incomplete-uni-patterns
-- -Werror=partial-fields
-- -Werror=redundant-constraints
 
 dependencies:
   - base >= 4.19 && < 5

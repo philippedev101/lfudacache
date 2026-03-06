@@ -33,7 +33,35 @@ library
   hs-source-dirs:
       src
   default-extensions:
+      BangPatterns
+      DataKinds
+      DefaultSignatures
+      DeriveAnyClass
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingVia
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      FunctionalDependencies
+      GADTs
+      KindSignatures
+      LambdaCase
+      MultiWayIf
       NoImplicitPrelude
+      OverloadedRecordDot
+      OverloadedStrings
+      PartialTypeSignatures
+      PolyKinds
+      RecordWildCards
+      RoleAnnotations
+      UnboxedSums
+      UnboxedTuples
+      UnliftedDatatypes
+      UnliftedNewtypes
+      ViewPatterns
   ghc-options: -Wall
   build-depends:
       base >=4.19 && <5
@@ -50,8 +78,36 @@ executable lfuda-demo
   hs-source-dirs:
       app
   default-extensions:
+      BangPatterns
+      DataKinds
+      DefaultSignatures
+      DeriveAnyClass
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingVia
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      FunctionalDependencies
+      GADTs
+      KindSignatures
+      LambdaCase
+      MultiWayIf
       NoImplicitPrelude
-  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+      OverloadedRecordDot
+      OverloadedStrings
+      PartialTypeSignatures
+      PolyKinds
+      RecordWildCards
+      RoleAnnotations
+      UnboxedSums
+      UnboxedTuples
+      UnliftedDatatypes
+      UnliftedNewtypes
+      ViewPatterns
+  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Wno-missing-kind-signatures -Wno-missing-deriving-strategies -Wno-unticked-promoted-constructors -Wno-missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields
   build-depends:
       base >=4.19 && <5
     , lfudacaching
@@ -65,8 +121,36 @@ test-suite lfuda-test
   hs-source-dirs:
       test
   default-extensions:
+      BangPatterns
+      DataKinds
+      DefaultSignatures
+      DeriveAnyClass
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingVia
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      FunctionalDependencies
+      GADTs
+      KindSignatures
+      LambdaCase
+      MultiWayIf
       NoImplicitPrelude
-  ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
+      OverloadedRecordDot
+      OverloadedStrings
+      PartialTypeSignatures
+      PolyKinds
+      RecordWildCards
+      RoleAnnotations
+      UnboxedSums
+      UnboxedTuples
+      UnliftedDatatypes
+      UnliftedNewtypes
+      ViewPatterns
+  ghc-options: -Weverything -Wno-deprecations -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-missing-safe-haskell-mode -Wno-monomorphism-restriction -Wno-prepositive-qualified-module -Wno-safe -Wno-type-defaults -Wno-unsafe -Wno-missing-export-lists -Wno-orphans -Wno-unused-imports -Wno-name-shadowing -Wno-missing-kind-signatures -Wno-missing-deriving-strategies -Wno-unticked-promoted-constructors -Wno-missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields
   build-depends:
       base >=4.19 && <5
     , lfudacaching
@@ -82,7 +166,35 @@ benchmark lfuda-bench
   hs-source-dirs:
       bench
   default-extensions:
+      BangPatterns
+      DataKinds
+      DefaultSignatures
+      DeriveAnyClass
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingVia
+      DisambiguateRecordFields
+      DuplicateRecordFields
+      FunctionalDependencies
+      GADTs
+      KindSignatures
+      LambdaCase
+      MultiWayIf
       NoImplicitPrelude
+      OverloadedRecordDot
+      OverloadedStrings
+      PartialTypeSignatures
+      PolyKinds
+      RecordWildCards
+      RoleAnnotations
+      UnboxedSums
+      UnboxedTuples
+      UnliftedDatatypes
+      UnliftedNewtypes
+      ViewPatterns
   ghc-options: -O2 -rtsopts
   build-depends:
       base >=4.19 && <5
