@@ -5,24 +5,25 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           lfudacaching
-version:        0.1.0
-synopsis:       LFUDA cache
+version:        0.1.0.0
+synopsis:       Pure LFUDA, GDSF, and LFU cache implementations
 description:    LFUDA (Least Frequently Used with Dynamic Aging) cache implementation in Haskell
 category:       Data
-homepage:       https://github.com/YOUR_USERNAME/lfudacaching#readme
-bug-reports:    https://github.com/YOUR_USERNAME/lfudacaching/issues
-author:         Your Name
-maintainer:     your.email@example.com
-copyright:      2025
+homepage:       https://github.com/philippedev101/lfudacache#readme
+bug-reports:    https://github.com/philippedev101/lfudacache/issues
+author:         philippedev101
+maintainer:     philippedev101@gmail.com
+copyright:      2026
 license:        Apache-2.0
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+    CHANGELOG.md
 
 source-repository head
   type: git
-  location: https://github.com/YOUR_USERNAME/lfudacaching
+  location: https://github.com/philippedev101/lfudacache
 
 library
   exposed-modules:
@@ -35,11 +36,11 @@ library
       NoImplicitPrelude
   ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
-      base
-    , deepseq
-    , ghc-prim
-    , hashable
-    , psqueues
+      base >=4.19 && <5
+    , deepseq >=1.5 && <1.7
+    , ghc-prim >=0.11 && <0.13
+    , hashable >=1.4 && <1.6
+    , psqueues >=0.2.8 && <0.3
   default-language: GHC2021
 
 executable lfuda-demo
@@ -52,7 +53,7 @@ executable lfuda-demo
       NoImplicitPrelude
   ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
-      base
+      base >=4.19 && <5
     , lfudacaching
   default-language: GHC2021
 
@@ -67,10 +68,10 @@ test-suite lfuda-test
       NoImplicitPrelude
   ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints
   build-depends:
-      base
+      base >=4.19 && <5
     , lfudacaching
-    , tasty
-    , tasty-hunit
+    , tasty ==1.5.*
+    , tasty-hunit ==0.10.*
   default-language: GHC2021
 
 benchmark lfuda-bench
@@ -84,7 +85,7 @@ benchmark lfuda-bench
       NoImplicitPrelude
   ghc-options: -Weverything -Wno-prepositive-qualified-module -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-unsafe -Wno-all-missed-specialisations -Wno-missed-specialisations -Werror=identities -Werror=missing-methods -Werror=incomplete-record-updates -Werror=incomplete-patterns -Werror=missing-fields -Werror=ambiguous-fields -Werror=incomplete-uni-patterns -Werror=partial-fields -Werror=redundant-constraints -O2 -rtsopts
   build-depends:
-      base
+      base >=4.19 && <5
     , lfudacaching
-    , tasty-bench
+    , tasty-bench ==0.4.*
   default-language: GHC2021

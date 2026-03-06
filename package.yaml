@@ -1,15 +1,16 @@
 name: lfudacaching
-version: 0.1.0
-github: "YOUR_USERNAME/lfudacaching"
+version: 0.1.0.0
+github: "philippedev101/lfudacache"
 license: Apache-2.0
-author: "Your Name"
-maintainer: "your.email@example.com"
-copyright: "2025"
-synopsis: LFUDA cache
+author: "philippedev101"
+maintainer: "philippedev101@gmail.com"
+copyright: "2026"
+synopsis: Pure LFUDA, GDSF, and LFU cache implementations
 description: LFUDA (Least Frequently Used with Dynamic Aging) cache implementation in Haskell
 category: Data
 extra-source-files:
   - README.md
+  - CHANGELOG.md
 
 language: GHC2021
 
@@ -35,17 +36,17 @@ ghc-options:
 - -Werror=redundant-constraints
 
 dependencies:
-  - base
+  - base >= 4.19 && < 5
 
 library:
   source-dirs: src
   exposed-modules:
     - Data.LfudaCache
   dependencies:
-    - deepseq
-    - hashable
-    - psqueues
-    - ghc-prim
+    - deepseq >= 1.5 && < 1.7
+    - hashable >= 1.4 && < 1.6
+    - psqueues >= 0.2.8 && < 0.3
+    - ghc-prim >= 0.11 && < 0.13
 
 executables:
   lfuda-demo:
@@ -60,8 +61,8 @@ tests:
     source-dirs: test
     dependencies:
       - lfudacaching
-      - tasty
-      - tasty-hunit
+      - tasty >= 1.5 && < 1.6
+      - tasty-hunit >= 0.10 && < 0.11
     other-modules:
       - Test.Data.LfudaCache
 
@@ -74,4 +75,4 @@ benchmarks:
       - -rtsopts
     dependencies:
       - lfudacaching
-      - tasty-bench
+      - tasty-bench >= 0.4 && < 0.5
