@@ -79,7 +79,7 @@ _dev-ghc-options: &dev-ghc-options
 - -Wno-missed-specialisations
 
 dependencies:
-  - base >= 4.19 && < 5
+  - base >= 4.18 && < 5
 
 library:
   source-dirs: src
@@ -88,10 +88,10 @@ library:
   ghc-options:
     - -Wall
   dependencies:
-    - deepseq >= 1.5 && < 1.7
+    - deepseq >= 1.4 && < 1.7
     - hashable >= 1.4 && < 1.6
     - psqueues >= 0.2.8 && < 0.3
-    - ghc-prim >= 0.11 && < 0.13
+    - ghc-prim >= 0.10 && < 0.14
 
 executables:
   lfuda-demo:

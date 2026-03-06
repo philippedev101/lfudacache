@@ -64,9 +64,9 @@ library
       ViewPatterns
   ghc-options: -Wall
   build-depends:
-      base >=4.19 && <5
-    , deepseq >=1.5 && <1.7
-    , ghc-prim >=0.11 && <0.13
+      base >=4.18 && <5
+    , deepseq >=1.4 && <1.7
+    , ghc-prim >=0.10 && <0.14
     , hashable >=1.4 && <1.6
     , psqueues >=0.2.8 && <0.3
   default-language: GHC2021
@@ -109,7 +109,7 @@ executable lfuda-demo
       ViewPatterns
   ghc-options: -Weverything -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -Wno-safe -Wno-unsafe -Werror=deprecations -Werror=identities -Werror=incomplete-patterns -Werror=incomplete-record-updates -Werror=missing-fields -Werror=missing-methods -Werror=ambiguous-fields -Werror=missing-export-lists -Werror=missing-local-signatures -Werror=monomorphism-restriction -Werror=type-defaults -Werror=orphans -Werror=unused-imports -Werror=name-shadowing -Werror=missing-kind-signatures -Werror=missing-deriving-strategies -Werror=unticked-promoted-constructors -Werror=missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations
   build-depends:
-      base >=4.19 && <5
+      base >=4.18 && <5
     , lfudacaching
   default-language: GHC2021
 
@@ -152,7 +152,7 @@ test-suite lfuda-test
       ViewPatterns
   ghc-options: -Weverything -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -Wno-safe -Wno-unsafe -Werror=deprecations -Werror=identities -Werror=incomplete-patterns -Werror=incomplete-record-updates -Werror=missing-fields -Werror=missing-methods -Werror=ambiguous-fields -Werror=missing-export-lists -Werror=missing-local-signatures -Werror=monomorphism-restriction -Werror=type-defaults -Werror=orphans -Werror=unused-imports -Werror=name-shadowing -Werror=missing-kind-signatures -Werror=missing-deriving-strategies -Werror=unticked-promoted-constructors -Werror=missing-role-annotations -Wno-all-missed-specialisations -Wno-missed-specialisations
   build-depends:
-      base >=4.19 && <5
+      base >=4.18 && <5
     , lfudacaching
     , tasty ==1.5.*
     , tasty-hunit ==0.10.*
@@ -197,7 +197,7 @@ benchmark lfuda-bench
       ViewPatterns
   ghc-options: -O2 -rtsopts
   build-depends:
-      base >=4.19 && <5
+      base >=4.18 && <5
     , lfudacaching
     , tasty-bench ==0.4.*
   default-language: GHC2021
