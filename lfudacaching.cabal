@@ -1,12 +1,14 @@
 cabal-version: 3.0
 name:          lfudacaching
-version:       0.1.0.0
+version:       0.1.0.1
 synopsis:      Pure LFUDA, GDSF, and LFU cache implementations
 description:
   Pure, immutable cache with three eviction policies:
   .
   * __LFUDA__ — Least Frequently Used with Dynamic Aging
+  .
   * __GDSF__ — Greedy Dual-Size Frequency
+  .
   * __LFU__ — Least Frequently Used
   .
   All operations are /O(log n)/ in the number of cached entries, backed by a
